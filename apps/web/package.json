@@ -1,0 +1,30 @@
+{
+  "name": "@tutela/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@tutela/protocol": "workspace:*",
+    "ethers": "6.17.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router-dom": "7.18.2"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.0",
+    "typescript": "6.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

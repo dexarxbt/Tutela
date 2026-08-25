@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "status": "pending",
+  "network": "creditcoin-cc3-testnet",
+  "chainId": 102031,
+  "infrastructure": {
+    "chainInfoPrecompile": "0x0000000000000000000000000000000000000fd3",
+    "blockProverPrecompile": "0x0000000000000000000000000000000000000FD2",
+    "evmDecoder": "0x731c345d79Fb8BbDC541f9DF3b6317585F849F9f"
+  },
+  "contracts": [
+    {
+      "name": "TutelaVault",
+      "constructorArguments": ["0x0000000000000000000000000000000000000FD2"]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#F7F7F2"/>
+  <path d="M0 0H1200V20H0z" fill="#B9F44A"/>
+  <rect x="72" y="72" width="72" height="72" rx="20" fill="#0C5639"/>
+  <path d="M101 91H91V125H101M115 91H125V125H115M100 99H116M108 99V119" stroke="#F7F7F2" stroke-width="5"/>
+  <text x="166" y="127" fill="#111611" font-family="Arial, sans-serif" font-size="56" font-weight="700">Tutela</text>
+  <text x="72" y="330" fill="#111611" font-family="Arial, sans-serif" font-size="92" font-weight="700">Service proved</text>
+  <text x="72" y="425" fill="#0C5639" font-family="Arial, sans-serif" font-size="92" font-weight="700">Failure paid</text>
+  <text x="76" y="522" fill="#526057" font-family="Arial, sans-serif" font-size="30">Proof-backed protection for DePIN services.</text>
+</svg>

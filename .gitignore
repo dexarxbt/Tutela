@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.tools/*
+!.tools/.gitkeep
+.env
+.env.local
+*.log
+*.tsbuildinfo
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

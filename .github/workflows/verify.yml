@@ -1,0 +1,33 @@
+name: Verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - run: pnpm install --frozen-lockfile
+      - run: forge install foundry-rs/forge-std@v1.16.2 --root contracts --no-git --shallow
+      - run: pnpm verify

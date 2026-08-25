@@ -1,0 +1,10 @@
+{
+  "name": "Tutela",
+  "short_name": "Tutela",
+  "description": "Proof-backed protection for DePIN services.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f2",
+  "theme_color": "#0c5639",
+  "icons": [{ "src": "/tutela-mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

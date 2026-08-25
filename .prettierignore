@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+contracts/cache
+contracts/out
+contracts/broadcast
+pnpm-lock.yaml
+*.svg

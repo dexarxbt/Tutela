@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+cache_path = "cache"
+solc_version = "0.8.30"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 1_000
+via_ir = true
+fuzz = { runs = 1_000 }
+invariant = { runs = 256, depth = 64, fail_on_revert = false }
+fs_permissions = [{ access = "read-write", path = "../deployments" }]
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+cc3 = "${CC3_RPC_URL}"

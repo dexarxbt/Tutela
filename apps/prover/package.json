@@ -1,0 +1,25 @@
+{
+  "name": "@tutela/prover",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gluwa/usc-sdk": "0.18.0",
+    "@tutela/protocol": "workspace:*",
+    "dotenv": "17.4.2",
+    "ethers": "6.17.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.3.0",
+    "tsx": "4.23.12",
+    "typescript": "6.0.2",
+    "vitest": "4.1.11"
+  }
+}
