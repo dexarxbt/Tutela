@@ -31,5 +31,7 @@ jobs:
         with:
           version: v1.7.1
       - run: pnpm install --frozen-lockfile
-      - run: forge install foundry-rs/forge-std@v1.16.2 --root contracts --no-git --shallow
+      - run: |
+          forge install foundry-rs/forge-std@v1.16.2 --root contracts --no-git --shallow
+          git checkout -- contracts/foundry.toml
       - run: pnpm verify
