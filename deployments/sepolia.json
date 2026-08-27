@@ -1,12 +1,20 @@
 {
   "schemaVersion": "1.0.0",
-  "status": "pending",
+  "status": "deployed",
   "network": "ethereum-sepolia",
   "chainId": 11155111,
-  "chainKey": 10,
+  "chainKey": 1,
+  "generatedAt": "2026-08-27T04:04:28.968Z",
+  "gitCommit": "2f86d9637bdae625af813159d288422a0154900c",
   "contracts": [
     {
       "name": "ServiceSessionRegistry",
+      "address": "0x6ecA894E12cE5d498e9b55fD4cFc246995494577",
+      "deploymentTransaction": "0xaee94c1d92b383de27fb22ccde9d59a94d0adbb9dc22b86e4545a26cbc544dcf",
+      "deploymentBlock": 11575353,
+      "deployer": "0x6a7Ea62C513c68c64e17f3EaBcA7f6fe19DA6dBe",
+      "bytecodeHash": "0xb9ce108c665e96ec61091ccbb57c62fc053a5538097a3e118bb37c79f0a1930e",
+      "explorerUrl": "https://sepolia.etherscan.io/tx/0xaee94c1d92b383de27fb22ccde9d59a94d0adbb9dc22b86e4545a26cbc544dcf",
       "constructorArguments": []
     }
   ]

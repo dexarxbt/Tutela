@@ -23,7 +23,10 @@ export const deploymentManifestSchema = z
     chainId: positiveInteger,
     chainKey: positiveInteger.optional(),
     generatedAt: z.iso.datetime().optional(),
-    gitCommit: z.string().optional(),
+    gitCommit: z
+      .string()
+      .regex(/^[a-f0-9]{40}$/)
+      .optional(),
     infrastructure: z
       .object({
         chainInfoPrecompile: address.optional(),
@@ -69,7 +72,10 @@ export const evidenceManifestSchema = z
     schemaVersion: z.literal('1.0.0'),
     status: z.enum(['pending', 'verified']),
     outcome: z.enum(['success', 'failure']),
-    gitCommit: z.string().optional(),
+    protocolCommit: z
+      .string()
+      .regex(/^[a-f0-9]{40}$/)
+      .optional(),
     coverageId: hash.optional(),
     sessionId: hash.optional(),
     programId: hash.optional(),
@@ -98,7 +104,7 @@ export const evidenceManifestSchema = z
   .superRefine((evidence, context) => {
     if (evidence.status !== 'verified') return;
     for (const field of [
-      'gitCommit',
+      'protocolCommit',
       'coverageId',
       'sessionId',
       'programId',

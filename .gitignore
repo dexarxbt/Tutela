@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.data/
 .tools/*
 !.tools/.gitkeep
 .env
@@ -15,3 +16,4 @@ contracts/lib/
 Thumbs.db
 .vscode/
 .idea/
+semantic-review/

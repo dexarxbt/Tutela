@@ -21,6 +21,8 @@ Attestcoin proves inclusion and receipt data for a source-chain transaction. It 
 
 Public RPC endpoints, the proof builder, indexer availability, and the permissionless prover affect liveness, not settlement authorization. A malicious worker may delay or submit invalid data, but cannot cause a valid vault transition without a proof and exact semantic match.
 
+The web app's evidence receipts are static repository snapshots, not live chain or indexer views. The release validator checks each manifest against live public RPC receipts and historical contract state, including deployment bytecode, exact event semantics, and balance equations. This online audit can fail closed when either configured public endpoint is unavailable; it does not add provider quorum, refresh balances, or establish additional finality when a visitor opens the page. Explorer links let visitors independently inspect both chains.
+
 ## Known testnet limitations
 
 - No independent audit or formal verification.
@@ -28,6 +30,7 @@ Public RPC endpoints, the proof builder, indexer availability, and the permissio
 - No source-chain reorganization delay beyond the proof system's guarantees.
 - No emergency pause; this avoids admin custody but makes deployed mistakes irreversible.
 - CTC accounting assumes native-currency behavior on Creditcoin CC3.
+- The published demo evidence aliases customer, operator, and authorized device to one testnet address. Contract role checks remain distinct, but these snapshots do not demonstrate independent custody, key separation, or adversarial parties.
 
 ## Reporting a vulnerability
 

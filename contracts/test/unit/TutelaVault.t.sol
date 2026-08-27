@@ -28,7 +28,7 @@ contract TutelaVaultTest is Test {
     address internal registry = address(0x53A710);
     address internal attacker = address(0xBAD);
 
-    uint64 internal constant CHAIN_KEY = 10;
+    uint64 internal constant CHAIN_KEY = 1;
     uint128 internal constant PREMIUM = 0.1 ether;
     uint128 internal constant PAYOUT = 5 ether;
     uint128 internal constant MINIMUM_UNITS = 25_000;

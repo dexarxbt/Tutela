@@ -2,6 +2,7 @@ import { CHAIN_IDS } from '@tutela/protocol';
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { chainLabel, shortenAddress, useWallet } from './wallet';
+import { successfulLifecycle } from './data';
 
 export function Brand({ light = false }: { light?: boolean }) {
   return (
@@ -158,12 +159,13 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function PreviewBanner() {
+export function VerifiedEvidenceBanner() {
   return (
-    <div className="preview-banner" role="status">
-      <span>Preview environment</span>
+    <div className="verified-evidence-banner" role="status">
+      <span>Verified evidence snapshots</span>
       <p>
-        Representative data only. Testnet addresses and verified evidence are pending deployment.
+        Two repository-validated testnet lifecycles are shown. Values are not a live index of
+        current chain state.
       </p>
     </div>
   );
@@ -213,12 +215,12 @@ export function AppShell() {
           <div className="environment">
             <span className="environment__pulse" />
             <div>
-              <strong>Protocol preview</strong>
-              <small>Deployment pending</small>
+              <strong>Verified testnet snapshots</strong>
+              <small>Explorer-backed success and failure</small>
             </div>
           </div>
-          <Link to="/receipt/TUT-7F3A-0192">
-            Open public receipt <Icon name="arrow" size={16} />
+          <Link to={`/receipt/${successfulLifecycle.id}`}>
+            Open verified receipt <Icon name="arrow" size={16} />
           </Link>
         </div>
       </aside>
@@ -239,7 +241,7 @@ export function AppShell() {
           </div>
           <WalletButton compact />
         </header>
-        <PreviewBanner />
+        <VerifiedEvidenceBanner />
         <main className="app-content">
           <Outlet />
         </main>

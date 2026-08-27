@@ -1,7 +1,8 @@
 import { blockProver, chainInfo, proofProvider } from '@gluwa/usc-sdk';
-import { Contract, JsonRpcProvider, Wallet } from 'ethers';
+import { Contract, JsonRpcProvider } from 'ethers';
 import { CHAIN_IDS, ProofAction, tutelaVaultAbi } from '@tutela/protocol';
 import type { ProverConfig } from './config';
+import { createDestinationSigner } from './signer';
 import { logger } from './logger';
 import type { PersistentQueue, ProofJob } from './queue';
 import { validateSourceReceipt } from './semantics';
@@ -9,6 +10,7 @@ import { validateSourceReceipt } from './semantics';
 export interface ProverRuntime {
   sourceProvider: JsonRpcProvider;
   destinationProvider: JsonRpcProvider;
+  signerAddress: string;
   chainKey: number;
   proofBuilder: proofProvider.service.ProofBuilder;
   precompile: blockProver.PrecompileBlockProver;
@@ -38,10 +40,11 @@ export async function createRuntime(config: ProverConfig): Promise<ProverRuntime
   );
   if (!sourceChain) throw new Error('Sepolia is not currently supported by CC3 ChainInfo');
 
-  const wallet = new Wallet(config.CC3_PRIVATE_KEY, destinationProvider);
+  const wallet = await createDestinationSigner(config, destinationProvider);
   return {
     sourceProvider,
     destinationProvider,
+    signerAddress: await wallet.getAddress(),
     chainKey: sourceChain.chainKey,
     proofBuilder: new proofProvider.service.ProofBuilder(
       sourceChain.chainKey,

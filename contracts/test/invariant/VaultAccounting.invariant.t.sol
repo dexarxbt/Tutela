@@ -23,7 +23,7 @@ contract VaultAccountingHandler is Test {
         programId = vault.createProgram{ value: msg.value }(
             address(0x53A710),
             address(0xD3A1C3),
-            10,
+            1,
             0.1 ether,
             5 ether,
             1 hours,

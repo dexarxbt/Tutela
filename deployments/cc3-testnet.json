@@ -1,8 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "status": "pending",
+  "status": "deployed",
   "network": "creditcoin-cc3-testnet",
   "chainId": 102031,
+  "generatedAt": "2026-08-27T04:04:28.968Z",
+  "gitCommit": "2f86d9637bdae625af813159d288422a0154900c",
   "infrastructure": {
     "chainInfoPrecompile": "0x0000000000000000000000000000000000000fd3",
     "blockProverPrecompile": "0x0000000000000000000000000000000000000FD2",
@@ -11,6 +13,12 @@
   "contracts": [
     {
       "name": "TutelaVault",
+      "address": "0x6ecA894E12cE5d498e9b55fD4cFc246995494577",
+      "deploymentTransaction": "0x5e158d6be28f2b20aa532fe2d1ff10a779323efae647bdf2aa11cdb6a1622dd1",
+      "deploymentBlock": 5380994,
+      "deployer": "0x6a7Ea62C513c68c64e17f3EaBcA7f6fe19DA6dBe",
+      "bytecodeHash": "0x2b7b803e7897110443e7d9a67888bf706167987b8c5d5a9ee0926e5d318d236e",
+      "explorerUrl": "https://creditcoin-testnet.blockscout.com/tx/0x5e158d6be28f2b20aa532fe2d1ff10a779323efae647bdf2aa11cdb6a1622dd1",
       "constructorArguments": ["0x0000000000000000000000000000000000000FD2"]
     }
   ]

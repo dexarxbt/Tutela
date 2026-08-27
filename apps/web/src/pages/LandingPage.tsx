@@ -1,5 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Brand, Icon } from '../components';
+import {
+  coverages,
+  failedLifecycle,
+  shortHash,
+  successfulLifecycle,
+  verifiedProgram,
+} from '../data';
 
 export function LandingPage() {
   return (
@@ -12,14 +19,14 @@ export function LandingPage() {
           <a href="#integration">Attestcoin</a>
         </nav>
         <Link className="button button--outline" to="/app">
-          Open app <Icon name="arrow" size={17} />
+          Open evidence app <Icon name="arrow" size={17} />
         </Link>
       </header>
       <main>
         <section className="hero">
           <div className="hero__signal">
             <span />
-            <span>DePIN service warranties, settled by proof</span>
+            <span>Verified testnet service warranties, settled by proof</span>
           </div>
           <h1>
             Service proved
@@ -31,22 +38,22 @@ export function LandingPage() {
             trusting a warranty desk, relayer, or operator.
           </p>
           <div className="hero__actions">
-            <Link className="button button--green" to="/app">
-              Explore the protocol <Icon name="arrow" size={18} />
+            <Link className="button button--green" to={`/receipt/${successfulLifecycle.id}`}>
+              Inspect verified success <Icon name="arrow" size={18} />
             </Link>
-            <a className="text-link" href="#integration">
-              See how proofs settle <span>↓</span>
-            </a>
+            <Link className="text-link" to={`/receipt/${failedLifecycle.id}`}>
+              Inspect verified failure <Icon name="arrow" size={16} />
+            </Link>
           </div>
           <div
             className="hero-visual"
-            aria-label="A protected EV charging session moving from source proof to settlement"
+            aria-label="Verified success evidence moving from a Sepolia transaction to Creditcoin settlement"
           >
             <div className="hero-visual__top">
-              <span className="mono">PROTOCOL PREVIEW / REPRESENTATIVE DATA</span>
+              <span className="mono">VERIFIED TESTNET EVIDENCE / REPOSITORY SNAPSHOT</span>
               <span className="visual-live">
                 <i />
-                ILLUSTRATIVE SESSION
+                {coverages.length} SETTLED LIFECYCLES
               </span>
             </div>
             <div className="passage">
@@ -55,9 +62,13 @@ export function LandingPage() {
                   <Icon name="bolt" size={30} />
                 </div>
                 <div>
-                  <span>Sepolia</span>
-                  <strong>EV charge session</strong>
-                  <small>Minimum 18 kWh · 45 min</small>
+                  <span>Ethereum Sepolia</span>
+                  <strong>
+                    Block {successfulLifecycle.source.blockNumber.toLocaleString('en-US')}
+                  </strong>
+                  <small title={successfulLifecycle.source.transactionHash}>
+                    Tx {shortHash(successfulLifecycle.source.transactionHash, 10, 8)}
+                  </small>
                 </div>
               </div>
               <div className="passage__line">
@@ -70,8 +81,8 @@ export function LandingPage() {
                 <div className="proof-ring">
                   <Icon name="check" size={25} />
                 </div>
-                <span>Attested receipt</span>
-                <small>Exact event semantics</small>
+                <span>Verified success</span>
+                <small>{successfulLifecycle.deliveredUnits} delivered</small>
               </div>
               <div className="passage__line passage__line--short">
                 <span />
@@ -80,22 +91,32 @@ export function LandingPage() {
               </div>
               <div className="passage__settlement">
                 <span>Creditcoin CC3</span>
-                <strong>120 CTC</strong>
-                <small>Bond reserved for customer</small>
+                <strong>
+                  Block {successfulLifecycle.destination.blockNumber.toLocaleString('en-US')}
+                </strong>
+                <small>{successfulLifecycle.premium} claimable delta</small>
               </div>
             </div>
             <div className="hero-visual__bottom">
               <div>
-                <span>Coverage</span>
-                <strong>TUT-C922-117B</strong>
+                <span>Success coverage</span>
+                <Link
+                  className="mono"
+                  to={`/receipt/${successfulLifecycle.id}`}
+                  title={successfulLifecycle.id}
+                >
+                  {shortHash(successfulLifecycle.id)}
+                </Link>
               </div>
               <div>
-                <span>Operator bond</span>
-                <strong>125,000 CTC</strong>
+                <span>Failure customer credit</span>
+                <Link to={`/receipt/${failedLifecycle.id}`} title={failedLifecycle.id}>
+                  {failedLifecycle.customerCredit}
+                </Link>
               </div>
               <div>
-                <span>Settlement authority</span>
-                <strong>Contract logic</strong>
+                <span>Recorded operator bond</span>
+                <strong>{verifiedProgram.recordedBond}</strong>
               </div>
             </div>
           </div>
@@ -234,8 +255,8 @@ export function LandingPage() {
               status, event, session identities, terms, units, deadline, and replay state before
               moving value.
             </p>
-            <Link className="text-link text-link--light" to="/receipt/TUT-7F3A-0192">
-              Inspect a public receipt <Icon name="arrow" size={17} />
+            <Link className="text-link text-link--light" to={`/receipt/${successfulLifecycle.id}`}>
+              Inspect verified success <Icon name="arrow" size={17} />
             </Link>
           </div>
           <div className="architecture__diagram">
@@ -329,7 +350,7 @@ export function LandingPage() {
           <a href="https://docs.creditcoin.org/creditcoin-usc" target="_blank" rel="noreferrer">
             Attestcoin docs <Icon name="external" size={14} />
           </a>
-          <Link to="/app">Protocol preview</Link>
+          <Link to="/app">Verified evidence app</Link>
         </div>
         <small>Built for BUIDL CTC 2026 · Testnet prototype</small>
       </footer>

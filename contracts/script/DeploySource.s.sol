@@ -7,8 +7,7 @@ import { ServiceSessionRegistry } from "../src/source/ServiceSessionRegistry.sol
 
 contract DeploySource is Script {
     function run() external returns (ServiceSessionRegistry registry) {
-        uint256 deployerKey = vm.envUint("SEPOLIA_PRIVATE_KEY");
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         registry = new ServiceSessionRegistry();
         vm.stopBroadcast();
         console2.log("ServiceSessionRegistry", address(registry));

@@ -41,6 +41,7 @@ async function main() {
   logger.info('prover-started', {
     sourceRegistry: config.SOURCE_REGISTRY_ADDRESS,
     tutelaVault: config.TUTELA_VAULT_ADDRESS,
+    signerAddress: runtime.signerAddress,
     sourceChainKey: runtime.chainKey,
     mode: once ? 'once' : 'continuous',
   });

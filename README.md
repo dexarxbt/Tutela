@@ -1,205 +1,232 @@
 <p align="center">
-  <img src="apps/web/public/tutela-mark.svg" width="76" alt="Tutela protected passage mark" />
+  <img src="apps/web/public/tutela-mark.svg" width="84" alt="Tutela protected passage mark" />
 </p>
 
 <h1 align="center">Tutela</h1>
-<p align="center"><strong>Service proved · Failure paid</strong></p>
-<p align="center">A collateralized warranty layer for DePIN services</p>
+<p align="center"><strong>Service proved. Failure paid.</strong></p>
+<p align="center">A proof-settled, collateralized warranty primitive for DePIN services.</p>
 
-<p align="center"><code>v0.01 · active development · testnet deployment pending</code></p>
+<p align="center">
+  <a href="https://github.com/dexarxbt/Tutela/actions/workflows/verify.yml"><img alt="Verify" src="https://github.com/dexarxbt/Tutela/actions/workflows/verify.yml/badge.svg" /></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-173D2D" /></a>
+  <img alt="Networks" src="https://img.shields.io/badge/networks-Sepolia%20%E2%86%92%20Creditcoin%20CC3-73F28C" />
+  <img alt="Evidence" src="https://img.shields.io/badge/evidence-success%20%2B%20failure-verified" />
+</p>
 
 ---
 
-Tutela makes a service promise expensive to break.
+A DePIN service promise is only useful when breaking it has a deterministic economic consequence. Tutela lets an operator bond native CTC against immutable service terms before a customer starts a session. A verified source-chain outcome then releases the premium on success or credits the reserved payout and premium refund on failure.
 
-A DePIN operator places CTC behind explicit service terms before a customer starts a session. If the service is completed, an Attestcoin-verified source event releases the premium to the operator. If the deadline expires without a valid completion, the same proof path moves the reserved payout and premium refund to the customer.
+Tutela uses [Attestcoin](https://docs.creditcoin.org/creditcoin-usc) to transport Sepolia transaction receipts into Creditcoin CC3. The prover is permissionless and untrusted: only exact contract semantics can authorize a vault transition.
 
-The repository contains the working local protocol foundation, prover, and product interface. It does **not** yet contain a completed live Sepolia → Creditcoin CC3 settlement. Deployment addresses and evidence remain intentionally empty until those transactions happen.
+## Live testnet proof
 
-## Build state
+The repository includes two completed Sepolia → Creditcoin CC3 lifecycles. Every identifier, transaction, semantic field, and balance effect below is validated from `evidence/*.json` and rendered by the public receipt UI.
 
-| Area                                  | State           | What that means                                                                                                                        |
-| ------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Warranty accounting                   | **Implemented** | CTC bond deposits, payout reservation, cancellation, success, failure, and pull withdrawals are locally tested                         |
-| Source session authority              | **Implemented** | EIP-712 customer authorization, authorized-device completion, and permissionless failure finalization are locally tested               |
-| Attestcoin verification               | **In progress** | Canonical BlockProver integration and strict event decoding are implemented; live testnet proof submission is pending                  |
-| Permissionless prover                 | **In progress** | Durable queue, chain-key lookup, proof acquisition, preflight, retry, and submission paths are implemented; network burn-in is pending |
-| Web product                           | **In progress** | Landing, operator workspace, coverage views, wallet awareness, and public receipt format are built with representative preview data    |
-| Sepolia deployment                    | **Pending**     | Requires a funded deployment wallet                                                                                                    |
-| Creditcoin CC3 deployment             | **Pending**     | Requires a funded deployment wallet                                                                                                    |
-| Verified success/failure evidence     | **Pending**     | Will only be published from confirmed end-to-end transactions                                                                          |
-| Audit and production hardware binding | **Not started** | v0.01 is unaudited testnet software                                                                                                    |
+| Outcome     | Source evidence                                                                                                                                      | CC3 settlement                                                                                                                                               | Economic result                                                                          |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **Success** | [Sepolia tx `0x660700…6f36`](https://sepolia.etherscan.io/tx/0x660700a12e7c94f1acf0439157beeb6ba1cd935aade75ef6ab7ec3ecc9216f36), block `11,575,967` | [CC3 tx `0x12b3d8…f12b`](https://creditcoin-testnet.blockscout.com/tx/0x12b3d8a3d7c666aca28631d3d594443389e69ae15b563f14c916e390242bf12b), block `5,381,500` | `1` unit met the `1`-unit minimum; `0.001 CTC` premium credited; operator bond unchanged |
+| **Failure** | [Sepolia tx `0xb34a32…505d`](https://sepolia.etherscan.io/tx/0xb34a32183024e6a7d5276c5b74227343b937ac396a4b55ca23fdbac8e746505d), block `11,576,105` | [CC3 tx `0xde0669…cf01`](https://creditcoin-testnet.blockscout.com/tx/0xde066947de440ac2eb140ebf65fe37b459e781eb646012ec74fda60314c7cf01), block `5,381,614` | `0.01 CTC` bond consumed; `0.011 CTC` payout plus premium refund credited                |
 
-## The warranty loop
+**Program:** `0x88c009c1caeaa9b2889593791115138e662f8d6e3e6dea58ff03491037187f07`
 
-```text
-1. OPERATOR BONDS CTC
-   TutelaVault records immutable terms and available collateral on Creditcoin CC3
+**Verified coverage receipts:**
 
-2. CUSTOMER RESERVES COVERAGE
-   The premium is paid and the exact failure payout becomes unavailable to the operator
+- success — `/receipt/0x60cf6800840d779b92454f6358445bfe66825cc0af748e562accf5276c30444c`
+- failure — `/receipt/0xd1c9c247c2aab9ef519b2cceec8ac36121bee6e66e1f8a0d73542b34b18a59ef`
 
-3. DEVICE OPENS THE SESSION
-   A customer-signed EIP-712 authorization is recorded by ServiceSessionRegistry on Sepolia
+The web app is an explorer-backed evidence snapshot, not a live indexer. It fails closed when verified manifests are unavailable and never invents missing state.
 
-4. SOURCE OUTCOME IS PROVED
-   Anyone may carry the Sepolia receipt through Attestcoin and submit it to TutelaVault
+## How it works
 
-5A. SERVICE COMPLETED                 5B. DEADLINE EXPIRED
-    reserved bond is released             reserved bond is consumed
-    premium is credited to operator       payout + premium are credited to customer
+```mermaid
+sequenceDiagram
+    participant O as Operator
+    participant V as TutelaVault · CC3
+    participant C as Customer
+    participant R as ServiceSessionRegistry · Sepolia
+    participant P as Permissionless prover
+    participant A as Attestcoin BlockProver
+
+    O->>V: Create program + bond CTC
+    C->>V: Reserve coverage + premium
+    Note over V: Exact failure payout becomes unavailable
+    C-->>R: EIP-712 session authorization
+    O->>R: Authorized device opens session
+    alt Service delivered
+        O->>R: Device-signed service receipt
+        R-->>P: SessionSettled event
+        P->>A: Acquire attested transaction receipt
+        P->>V: Submit success proof
+        V-->>O: Release collateral + credit premium
+    else Deadline expires
+        R->>R: Permissionless failure finalization
+        R-->>P: SessionFailed event
+        P->>A: Acquire attested transaction receipt
+        P->>V: Submit failure proof
+        V-->>C: Credit payout + premium refund
+    end
 ```
 
-The prover is not an oracle and has no settlement privilege. It can relay data, retry work, or disappear. It cannot make the vault accept a source event that fails Tutela’s contract-level checks.
+### The critical design rule
 
-## What the vault actually accepts
+A valid cross-chain proof is **transport**, not authority. `TutelaVault.submitProof` accepts a transition only after checking:
 
-`TutelaVault.submitProof` does not equate “cryptographically valid” with “economically authorized.” After calling Attestcoin’s canonical `verifyAndEmit`, the vault checks:
-
-- the configured source chain key;
-- a successful, zero-value source transaction;
-- the approved registry as both transaction target and event emitter;
-- exactly one expected session event;
-- the coverage, session, and program identifiers;
+- authoritative Sepolia chain key `1` from CC3 `ChainInfo`;
+- successful, zero-value source transaction;
+- approved registry as transaction target and event emitter;
+- exactly one expected lifecycle event;
+- matching program, coverage, and session identifiers;
 - customer, operator, and authorized-device identities;
 - terms hash, deadline, and minimum service units;
-- delivered units for successful completion;
-- transaction-derived proof replay state.
+- delivered units for a successful session;
+- proof replay and lifecycle state.
 
-Only then can CTC accounting change.
+The prover can retry, disappear, or submit invalid data. It cannot bypass these checks or move value by privilege.
 
-## Truth boundary
+## Deployed contracts
 
-Tutela is careful about what cross-chain proof can establish.
+| Network                       | Contract                 | Address                                                                                                       | Deployment                                                                                                                               |
+| ----------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Ethereum Sepolia · `11155111` | `ServiceSessionRegistry` | [`0x6ecA…4577`](https://sepolia.etherscan.io/address/0x6ecA894E12cE5d498e9b55fD4cFc246995494577)              | [tx](https://sepolia.etherscan.io/tx/0xaee94c1d92b383de27fb22ccde9d59a94d0adbb9dc22b86e4545a26cbc544dcf), block `11,575,353`             |
+| Creditcoin CC3 · `102031`     | `TutelaVault`            | [`0x6ecA…4577`](https://creditcoin-testnet.blockscout.com/address/0x6ecA894E12cE5d498e9b55fD4cFc246995494577) | [tx](https://creditcoin-testnet.blockscout.com/tx/0x5e158d6be28f2b20aa532fe2d1ff10a779323efae647bdf2aa11cdb6a1622dd1), block `5,380,994` |
 
-**Attestcoin proves:** a specific transaction and receipt were included on the configured source chain.
+CC3 infrastructure used by the deployed vault:
 
-**Tutela enforces:** which source contract, event, arguments, identities, and terms are allowed to trigger value movement.
+| Component      | Address                                      |
+| -------------- | -------------------------------------------- |
+| `ChainInfo`    | `0x0000000000000000000000000000000000000fd3` |
+| `BlockProver`  | `0x0000000000000000000000000000000000000FD2` |
+| `EvmV1Decoder` | `0x731c345d79Fb8BbDC541f9DF3b6317585F849F9f` |
 
-**The device still attests:** the physical measurement itself. A blockchain receipt does not independently prove that electricity, bandwidth, storage, or compute was delivered. Production use requires secure device keys and a hardware trust model that is outside v0.01.
+Deployment records include bytecode hashes, constructor arguments, blocks, deployer, and explorer transactions in `deployments/*.json`.
 
-## Why EV charging first
+## System architecture
 
-A charging session has the shape Tutela needs:
+| Layer                    | Responsibility                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `ServiceSessionRegistry` | EIP-712 customer authorization, device-bound session opening, signed completion, deterministic expiry   |
+| `TutelaVault`            | Immutable programs, native CTC collateral, reservation, strict proof semantics, pull-payment settlement |
+| Permissionless prover    | Source indexing, durable queue, ChainInfo lookup, proof acquisition, preflight, retry, submission       |
+| Protocol package         | Shared ABIs, schemas, chain constants, and deployment/evidence types                                    |
+| Evidence app             | Verified manifest adapter, explorer-backed receipts, wallet-aware CC3 program creation                  |
 
-- a known operator and device;
-- a customer-authorized start;
-- measurable minimum delivery;
-- a bounded completion window;
-- a clear failure consequence.
+The contracts are deliberately non-upgradeable. There is no proxy admin, trusted relayer role, arbitrary cross-chain executor, token, DAO, or AI adjudicator.
 
-The contracts are service-agnostic, but the current product copy and representative dataset stay focused on EV charging instead of pretending to solve every DePIN category at once.
+## Security and truth boundary
 
-## v0.01 surface
+**Attestcoin proves** that a specific source transaction and receipt were included for the configured chain.
 
-### Sepolia — `ServiceSessionRegistry`
+**Tutela enforces** which registry, event, identities, terms, deadline, and service units may move collateral.
 
-- EIP-712 customer authorization with nonce replay protection
-- one source session per reserved coverage
-- completion receipts signed by the program’s authorized device
-- minimum-unit and deadline enforcement
-- permissionless deterministic failure after expiry
+**The authorized device still attests** the physical measurement. A transaction receipt cannot independently prove electricity, bandwidth, storage, or compute delivery. Production use requires secure device keys and a hardware trust model outside this prototype.
 
-### Creditcoin CC3 — `TutelaVault`
+The published demo aliases customer, operator, and device to one dedicated testnet account to minimize operational friction. Contract roles and signatures remain distinct, and adversarial tests exercise separation, but the evidence does not demonstrate independent custody. See [`SECURITY.md`](SECURITY.md) for the full model and limitations.
 
-- immutable operator warranty programs
-- native CTC bond accounting
-- collateral reservation before source activation
-- canonical BlockProver `verifyAndEmit` integration
-- exact source-event semantic validation
-- proof and state-transition replay protection
-- pull-based operator and customer withdrawals
+> **Testnet only.** Tutela has not received an independent audit and must not custody production value.
 
-### Permissionless prover
+## Verification
 
-- current Sepolia chain-key resolution through `ChainInfo`
-- event indexing with a durable cursor
-- atomic queue persistence
-- Attestcoin proof-builder polling
-- source receipt and proof metadata prechecks
-- BlockProver preflight
-- idempotent retry and redacted structured logs
+The complete acceptance gate is one command:
 
-### Web application
+```bash
+pnpm verify
+```
 
-- original Tutela identity and protected-passage mark
-- responsive landing page and operator workspace
-- program, coverage, activity, and receipt routes
-- EIP-1193 wallet connection and Creditcoin network awareness
-- ABI-backed program creation, gated until deployment addresses exist
-- persistent preview disclosure for representative data
-- keyboard focus, reduced-motion, empty, and error states
+It runs:
 
-## Local verification
+- Prettier and Forge formatting checks;
+- strict TypeScript checks across protocol, prover, and web;
+- **13 application tests** — 4 prover tests and 9 evidence/UI tests;
+- production builds with route/vendor splitting and no public source maps;
+- contract size checks;
+- **23 Foundry tests**;
+- **1,000 fuzz runs**;
+- **32,768 invariant calls**;
+- deployment manifests checked against the named Git revision, exact creation bytecode and constructor arguments, live creation receipts, runtime bytecode hashes, and configured on-chain infrastructure;
+- verified evidence checked against live RPC receipts, historical state, exact event semantics, balance equations, and explorer URLs.
 
-The current local acceptance run passes:
-
-- **23/23 Foundry tests**
-- **1,000 fuzz runs** for configured fuzz cases
-- **32,768 invariant calls** with zero invariant-handler reverts
-- reserved bond never exceeds total bond
-- the vault remains solvent for program collateral and queued claims
-- **4/4 prover tests**
-- strict TypeScript checks and production builds for protocol, prover, and web
-- deployment and evidence schema validation in their honest `pending` state
-
-Contract runtime size at v0.01:
+Current contract sizes:
 
 | Contract                 | Runtime size | EIP-170 margin |
 | ------------------------ | -----------: | -------------: |
 | `ServiceSessionRegistry` |  6,026 bytes |   18,550 bytes |
 | `TutelaVault`            | 14,448 bytes |   10,128 bytes |
 
-## Run it
+## Run locally
 
-Requirements: Node.js 24+, pnpm 11.20.0, and Foundry 1.7.1.
+### Requirements
 
-```sh
+- Node.js `24+`
+- pnpm `11.20.0`
+- Foundry `1.7.1` for contract commands
+
+```bash
 pnpm install --frozen-lockfile
 pnpm verify
 pnpm dev
 ```
 
-Then inspect:
+Open:
 
-- `/` — protocol narrative
-- `/app` — operator and coverage workspace
-- `/receipt/TUT-7F3A-0192` — representative public receipt format
+- `/` — protocol narrative and verified outcome links
+- `/app` — evidence dashboard and program workspace
+- `/app/coverage` — both verified lifecycle snapshots
+- `/receipt/<coverageId>` — public explorer-backed receipt
 
-The web application is a preview until `VITE_SOURCE_REGISTRY_ADDRESS` and `VITE_TUTELA_VAULT_ADDRESS` point to confirmed deployments.
+The program creation route is a real Creditcoin CC3 write flow. New writes do not appear in evidence views until a new manifest is captured and validated.
 
-## Testnet completion path
+## Prover operation
 
-v0.01 becomes an end-to-end testnet release only after these steps are complete:
+The prover supports an encrypted Foundry keystore for interactive signing. Raw private keys remain optional only for controlled headless environments.
 
-1. deploy `ServiceSessionRegistry` to Sepolia;
-2. deploy `TutelaVault` to Creditcoin CC3 with the canonical BlockProver;
-3. publish complete deployment manifests with explorer-backed fields;
-4. create and fund an operator warranty program;
-5. execute one successful service lifecycle;
-6. execute one deterministic failure lifecycle;
-7. publish both source and destination transactions as verified evidence;
-8. replace preview records in the product with indexed live state;
-9. record the demo and submission materials.
-
-`deployments/*.json` and `evidence/*.json` are strict state boundaries. Pending files cannot contain invented addresses or transaction hashes. Changing them to `deployed` or `verified` requires all evidence fields to pass validation.
-
-## Repository layout
-
-```text
-apps/web/                 product interface and public receipts
-apps/prover/              permissionless source-event proof worker
-contracts/src/source/     Sepolia session authority
-contracts/src/cc3/        Creditcoin collateral and settlement vault
-contracts/test/           unit, fuzz, adversarial, and invariant coverage
-packages/protocol/        shared ABIs, chain constants, types, and schemas
-deployments/              pending or confirmed deployment records
-evidence/                 pending or verified lifecycle evidence
-scripts/                  Forge wrapper and evidence validators
+```bash
+cp .env.example apps/prover/.env
+pnpm --filter @tutela/prover start -- --once
 ```
 
-## Deliberate exclusions
+Set `CC3_KEYSTORE_PATH` to the encrypted keystore path. Enter its password only in the local hidden prompt. Never commit or paste a phrase, private key, keystore password, or populated `.env` file.
 
-There is no token, DAO, proxy admin, generic cross-chain executor, trusted relayer role, or AI adjudicator. v0.01 is focused on one primitive: a service warranty backed before use and settled from narrowly authorized cross-chain evidence.
+The source lifecycle runner is read-only unless reservation is explicitly confirmed. It verifies both chain IDs, deployed code, program terms, collateral, and wallet gas balances before spending:
 
-See [`SECURITY.md`](SECURITY.md) before running any testnet deployment. Tutela is MIT licensed and currently unaudited.
+```powershell
+.\scripts\live-lifecycle.ps1 -Outcome success
+.\scripts\live-lifecycle.ps1 -Outcome success -ConfirmReservation
+```
+
+After reservation it checkpoints public identifiers under ignored `.data/` state and emits state-aware Reserved or Active recovery commands if execution stops. It never writes signing secrets.
+
+The durable queue lives under `.data/` and is ignored by Git. Structured logs redact source, destination, coverage, and session transaction identifiers by default.
+
+## Repository map
+
+```text
+apps/
+  prover/                 permissionless proof worker and durable queue
+  web/                    evidence app, public receipts, and wallet write flow
+contracts/
+  src/source/             Sepolia session authority
+  src/cc3/                Creditcoin collateral and settlement vault
+  test/                   unit, adversarial, fuzz, and invariant coverage
+packages/protocol/        shared ABIs, constants, schemas, and types
+deployments/              confirmed explorer-backed deployment manifests
+evidence/                 verified success and failure lifecycle manifests
+scripts/                  Foundry wrapper, lifecycle runner, and validators
+```
+
+## Evidence integrity
+
+`pending` and `verified` are strict manifest states:
+
+- pending evidence may contain only schema version, status, and outcome;
+- verified evidence requires complete source/destination records, committed semantics, balance effects, and deployed contract references;
+- explorer URLs must exactly match the expected HTTPS host and transaction hash;
+- success must meet minimum units without consuming bond;
+- failure must consume bond and increase customer claimable balance;
+- role aliasing is handled explicitly rather than hiding the operator premium as customer compensation.
+
+This keeps the UI and README downstream of validated public facts.
+
+## License
+
+[MIT](LICENSE) · Built for BUIDL CTC 2026.

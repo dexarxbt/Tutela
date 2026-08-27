@@ -21,7 +21,7 @@
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
     "validate": "pnpm validate:deployments && pnpm validate:evidence",
-    "validate:deployments": "tsx scripts/validate-deployments.ts",
+    "validate:deployments": "pnpm contracts:build && tsx scripts/validate-deployments.ts",
     "validate:evidence": "tsx scripts/validate-evidence.ts",
     "verify": "pnpm format:check && pnpm contracts:fmt:check && pnpm typecheck && pnpm test && pnpm build && pnpm contracts:size && pnpm contracts:test && pnpm validate"
   },

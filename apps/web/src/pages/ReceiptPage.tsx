@@ -2,6 +2,21 @@ import { Link, useParams } from 'react-router-dom';
 import { Brand, CopyValue, Definition, Icon, StatusBadge } from '../components';
 import { findCoverage } from '../data';
 
+function ExactTransactionLink({ href, hash }: { href: string; hash: string }) {
+  return (
+    <a
+      className="receipt-transaction mono"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={`Open ${hash} in explorer`}
+    >
+      <span>{hash}</span>
+      <Icon name="external" size={15} />
+    </a>
+  );
+}
+
 export function ReceiptPage() {
   const { coverageId } = useParams();
   const coverage = findCoverage(coverageId);
@@ -16,16 +31,19 @@ export function ReceiptPage() {
         </header>
         <main className="receipt-not-found">
           <h1>Receipt not found</h1>
-          <p>No preview receipt matches this identifier.</p>
+          <p>No published evidence snapshot matches this identifier.</p>
           <Link className="button button--green" to="/">
             Return home
           </Link>
         </main>
       </div>
     );
-  const success = coverage.status === 'service-proved';
-  const failed = coverage.status === 'failure-paid';
-  const label = success ? 'Service proved' : failed ? 'Failure paid' : 'Protected';
+
+  const success = coverage.outcome === 'success';
+  const allRolesAliased =
+    coverage.customer.toLowerCase() === coverage.operator.toLowerCase() &&
+    coverage.operator.toLowerCase() === coverage.device.toLowerCase();
+
   return (
     <div className="receipt-page">
       <header className="receipt-header">
@@ -33,7 +51,7 @@ export function ReceiptPage() {
         <div>
           <span className="receipt-network">
             <i />
-            Protocol preview
+            Verified testnet evidence
           </span>
           <Link to="/app">
             Open app <Icon name="arrow" size={16} />
@@ -41,166 +59,203 @@ export function ReceiptPage() {
         </div>
       </header>
       <main className="receipt-main">
-        <div className="receipt-warning">
-          <strong>Preview receipt</strong>
-          <span>
-            This demonstrates the public verification format. It is not live testnet evidence.
-          </span>
+        <div className="receipt-provenance">
+          <Icon name="check" size={17} />
+          <div>
+            <strong>Repository-verified evidence snapshot</strong>
+            <span>
+              Source and settlement transactions match the validated manifest. The deployed protocol
+              revision is <span className="mono">{coverage.protocolCommit}</span>.
+            </span>
+          </div>
         </div>
         <section className="receipt-title">
           <div>
-            <span className="eyebrow">Public service receipt</span>
-            <h1>{coverage.id}</h1>
+            <span className="eyebrow">Public evidence receipt</span>
+            <h1 className="hash-heading">{coverage.id}</h1>
             <p>
-              {coverage.programName} · {coverage.location}
+              {coverage.programName} · {coverage.route}
             </p>
           </div>
-          <StatusBadge status={label} />
+          <StatusBadge status={coverage.statusLabel} />
         </section>
         <section className={`receipt-outcome receipt-outcome--${coverage.status}`}>
           <div className="receipt-outcome__seal">
-            <Icon name={success ? 'check' : failed ? 'activity' : 'coverage'} size={36} />
+            <Icon name={success ? 'check' : 'activity'} size={36} />
           </div>
           <div>
-            <span>Outcome</span>
-            <h2>
-              {success
-                ? 'Service conditions satisfied'
-                : failed
-                  ? 'Failure guarantee executed'
-                  : 'Coverage is active'}
-            </h2>
+            <span>Verified outcome</span>
+            <h2>{success ? 'Service conditions satisfied' : 'Failure guarantee executed'}</h2>
             <p>
               {success
                 ? `${coverage.deliveredUnits} met the committed ${coverage.minimumUnits} minimum.`
-                : failed
-                  ? `${coverage.payout} payout and ${coverage.premium} premium refund were credited to the customer.`
-                  : `${coverage.payout} remains reserved against the operator bond.`}
+                : `${coverage.payout} payout plus the premium refund produced a ${coverage.customerCredit} customer credit.`}
             </p>
           </div>
           <div className="receipt-amount">
-            <span>{success ? 'Delivered' : failed ? 'Customer credit' : 'Protected value'}</span>
-            <strong>
-              {success
-                ? coverage.deliveredUnits
-                : failed
-                  ? `${Number.parseInt(coverage.payout) + Number.parseInt(coverage.premium)} CTC`
-                  : coverage.payout}
-            </strong>
+            <span>{success ? 'Delivered' : 'Customer credit'}</span>
+            <strong>{success ? coverage.deliveredUnits : coverage.customerCredit}</strong>
           </div>
         </section>
+
         <div className="receipt-grid">
           <section className="receipt-section">
             <div className="receipt-section__heading">
               <span>01</span>
-              <h2>Service commitment</h2>
+              <h2>Evidence identity</h2>
             </div>
             <dl className="definition-list">
-              <Definition label="Program" value={coverage.programName} />
-              <Definition label="Minimum service" value={coverage.minimumUnits} />
-              <Definition label="Deadline" value={coverage.deadline} />
-              <Definition label="Premium" value={coverage.premium} />
-              <Definition label="Failure payout" value={coverage.payout} />
+              <Definition label="Coverage ID" value={<CopyValue value={coverage.id} />} mono />
               <Definition
-                label="Terms hash"
-                value={
-                  <CopyValue
-                    value={coverage.termsHash}
-                    display={`${coverage.termsHash.slice(0, 14)}…${coverage.termsHash.slice(-10)}`}
-                  />
-                }
+                label="Session ID"
+                value={<CopyValue value={coverage.sessionId} />}
                 mono
               />
+              <Definition
+                label="Program ID"
+                value={<CopyValue value={coverage.programId} />}
+                mono
+              />
+              <Definition
+                label="Deployed protocol commit"
+                value={<CopyValue value={coverage.protocolCommit} />}
+                mono
+              />
+              <Definition label="Outcome" value={coverage.outcome} />
             </dl>
           </section>
           <section className="receipt-section">
             <div className="receipt-section__heading">
               <span>02</span>
-              <h2>Participants</h2>
+              <h2>Committed semantics</h2>
             </div>
             <dl className="definition-list">
               <Definition label="Customer" value={coverage.customer} mono />
               <Definition label="Operator" value={coverage.operator} mono />
               <Definition label="Authorized device" value={coverage.device} mono />
-              <Definition label="Session ID" value={coverage.sessionId} mono />
+              <Definition label="Deadline" value={coverage.deadline} />
+              <Definition label="Minimum units" value={coverage.minimumUnits} />
+              {coverage.deliveredUnits && (
+                <Definition label="Delivered units" value={coverage.deliveredUnits} />
+              )}
+              <Definition
+                label="Terms hash"
+                value={<CopyValue value={coverage.termsHash} />}
+                mono
+              />
             </dl>
           </section>
         </div>
+
+        {allRolesAliased && (
+          <section className="receipt-disclosure">
+            <Icon name="activity" size={18} />
+            <div>
+              <strong>Role-alias demo limitation</strong>
+              <p>
+                Customer, operator, and authorized device use the same testnet address in this
+                snapshot. Contract roles remain semantically distinct, but this evidence does not
+                demonstrate independent keys or parties.
+              </p>
+            </div>
+          </section>
+        )}
+
         <section className="receipt-section receipt-proof">
           <div className="receipt-section__heading">
             <span>03</span>
-            <h2>Proof path</h2>
+            <h2>Explorer-backed proof path</h2>
           </div>
           <div className="receipt-proof__route">
             <div>
               <span>Source</span>
               <Icon name="bolt" />
               <strong>Ethereum Sepolia</strong>
-              <small>ServiceSessionRegistry</small>
+              <small>Chain ID {coverage.source.chainId}</small>
             </div>
             <span className="receipt-proof__connector">
               <i />
-              <b>Attestcoin receipt</b>
+              <b>Attested receipt path</b>
               <i />
             </span>
             <div>
               <span>Settlement</span>
               <Icon name="coverage" />
               <strong>Creditcoin CC3</strong>
-              <small>TutelaVault</small>
+              <small>Chain ID {coverage.destination.chainId}</small>
             </div>
           </div>
-          {coverage.proofId ? (
-            <dl className="receipt-proof__data">
-              <Definition label="Source block" value={coverage.sourceBlock} />
-              <Definition
-                label="Source transaction"
-                value={
-                  <CopyValue
-                    value={coverage.sourceTransaction!}
-                    display={`${coverage.sourceTransaction!.slice(0, 16)}…${coverage.sourceTransaction!.slice(-12)}`}
-                  />
-                }
-                mono
-              />
-              <Definition
-                label="Attestcoin proof ID"
-                value={
-                  <CopyValue
-                    value={coverage.proofId}
-                    display={`${coverage.proofId.slice(0, 16)}…${coverage.proofId.slice(-12)}`}
-                  />
-                }
-                mono
-              />
-            </dl>
-          ) : (
-            <div className="empty-inline">
-              <Icon name="clock" />
-              <div>
-                <strong>Awaiting source outcome</strong>
-                <span>No completion or failure proof has been settled.</span>
-              </div>
-            </div>
-          )}
+          <dl className="receipt-proof__data">
+            <Definition label="Source chain key" value={String(coverage.source.chainKey)} mono />
+            <Definition
+              label="Source block"
+              value={coverage.source.blockNumber.toLocaleString('en-US')}
+            />
+            <Definition label="Source contract" value={coverage.source.contract} mono />
+            <Definition
+              label="Source transaction"
+              value={
+                <ExactTransactionLink
+                  href={coverage.source.explorerUrl}
+                  hash={coverage.source.transactionHash}
+                />
+              }
+            />
+            <Definition
+              label="Destination block"
+              value={coverage.destination.blockNumber.toLocaleString('en-US')}
+            />
+            <Definition label="Destination contract" value={coverage.destination.contract} mono />
+            <Definition
+              label="Destination transaction"
+              value={
+                <ExactTransactionLink
+                  href={coverage.destination.explorerUrl}
+                  hash={coverage.destination.transactionHash}
+                />
+              }
+            />
+          </dl>
+          <p className="receipt-proof__note">
+            The manifest does not publish a separate proof ID. The exact source and destination
+            transaction records above are the public anchors for this snapshot.
+          </p>
         </section>
+
+        <section className="receipt-section receipt-balances">
+          <div className="receipt-section__heading">
+            <span>04</span>
+            <h2>Recorded balance effects</h2>
+          </div>
+          <dl className="receipt-balance-grid">
+            <Definition label="Operator bond before" value={coverage.operatorBondBefore} />
+            <Definition label="Operator bond after" value={coverage.operatorBondAfter} />
+            <Definition
+              label="Customer claimable before"
+              value={coverage.customerClaimableBefore}
+            />
+            <Definition label="Customer claimable after" value={coverage.customerClaimableAfter} />
+          </dl>
+        </section>
+
         <section className="receipt-verification">
           <Icon name="check" />
           <div>
-            <strong>What this receipt will verify after deployment</strong>
+            <strong>Truth boundary</strong>
             <p>
-              The source chain key, successful transaction receipt, approved registry, exact event
-              signature and arguments, session terms, identities, deadline, service units, and
-              replay state.
+              “Verified” means this repository snapshot passed its schema, deployment, semantic,
+              balance, and exact explorer-link checks. This static page does not query current chain
+              state, establish finality beyond the recorded blocks, or prove physical hardware and
+              measurement integrity.
             </p>
           </div>
         </section>
       </main>
       <footer className="receipt-footer">
-        <span>Tutela / Protected Passage</span>
+        <span>Tutela / Verified Evidence</span>
         <p>
-          Cryptographic evidence is not a claim about hardware integrity. Device measurements remain
-          an explicit trust boundary.
+          Attestcoin transports source receipt data. Tutela contract semantics determine which event
+          can move value; authorized device measurements remain an external trust assumption.
         </p>
       </footer>
     </div>

@@ -4,7 +4,7 @@ export const CHAIN_IDS = {
 } as const;
 
 export const ATTESTCOIN = {
-  expectedSepoliaChainKey: 10,
+  expectedSepoliaChainKey: 1,
   chainInfoPrecompile: '0x0000000000000000000000000000000000000fd3',
   blockProverPrecompile: '0x0000000000000000000000000000000000000FD2',
   evmDecoder: '0x731c345d79Fb8BbDC541f9DF3b6317585F849F9f',

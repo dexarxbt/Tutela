@@ -1,138 +1,170 @@
-export type DisplayCoverage = {
+import type { EvidenceManifest } from '@tutela/protocol';
+import failureManifest from '../../../evidence/failure.json';
+import successManifest from '../../../evidence/success.json';
+
+type VerifiedEvidence = EvidenceManifest & {
+  status: 'verified';
+  coverageId: string;
+  sessionId: string;
+  programId: string;
+  protocolCommit: string;
+  source: NonNullable<EvidenceManifest['source']>;
+  destination: NonNullable<EvidenceManifest['destination']>;
+  semantics: NonNullable<EvidenceManifest['semantics']>;
+  balanceEffects: NonNullable<EvidenceManifest['balanceEffects']>;
+};
+
+export type VerifiedLifecycle = {
   id: string;
   sessionId: string;
   programId: string;
   programName: string;
-  location: string;
+  route: string;
   customer: string;
   operator: string;
   device: string;
-  status: 'protected' | 'service-proved' | 'failure-paid';
+  status: 'service-proved' | 'failure-paid';
+  statusLabel: 'Verified success' | 'Verified failure';
+  outcome: 'success' | 'failure';
   premium: string;
   payout: string;
+  customerCredit: string;
   minimumUnits: string;
   deliveredUnits: string | null;
   deadline: string;
+  deadlineTimestamp: number;
   termsHash: string;
-  sourceTransaction: string | null;
-  sourceBlock: string | null;
-  proofId: string | null;
+  protocolCommit: string;
+  source: VerifiedEvidence['source'];
+  destination: VerifiedEvidence['destination'];
+  operatorBondBefore: string;
+  operatorBondAfter: string;
+  customerClaimableBefore: string;
+  customerClaimableAfter: string;
 };
 
-export const deploymentReady = Boolean(
-  import.meta.env.VITE_TUTELA_VAULT_ADDRESS && import.meta.env.VITE_SOURCE_REGISTRY_ADDRESS
+export const sourceRegistryAddress =
+  import.meta.env.VITE_SOURCE_REGISTRY_ADDRESS ?? '0x6ecA894E12cE5d498e9b55fD4cFc246995494577';
+export const tutelaVaultAddress =
+  import.meta.env.VITE_TUTELA_VAULT_ADDRESS ?? '0x6ecA894E12cE5d498e9b55fD4cFc246995494577';
+export const deploymentReady = Boolean(sourceRegistryAddress && tutelaVaultAddress);
+
+function requireVerified(input: unknown, outcome: 'success' | 'failure'): VerifiedEvidence {
+  const evidence = input as Partial<VerifiedEvidence>;
+  if (
+    evidence.status !== 'verified' ||
+    evidence.outcome !== outcome ||
+    !evidence.coverageId ||
+    !evidence.sessionId ||
+    !evidence.programId ||
+    !evidence.protocolCommit ||
+    !evidence.source ||
+    !evidence.destination ||
+    !evidence.semantics ||
+    !evidence.balanceEffects
+  ) {
+    throw new Error(`Verified ${outcome} evidence is unavailable`);
+  }
+  return evidence as VerifiedEvidence;
+}
+
+export function formatCtcWei(value: string | bigint) {
+  const amount = BigInt(value);
+  const scale = 10n ** 18n;
+  const whole = amount / scale;
+  const remainder = amount % scale;
+  if (remainder === 0n) return `${whole} CTC`;
+  const fraction = remainder.toString().padStart(18, '0').replace(/0+$/, '');
+  return `${whole}.${fraction} CTC`;
+}
+
+export function shortHash(value: string, start = 10, end = 8) {
+  return `${value.slice(0, start)}…${value.slice(-end)}`;
+}
+
+export function formatDeadline(timestamp: number) {
+  return `${new Date(timestamp * 1_000).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+const successEvidence = requireVerified(successManifest, 'success');
+const failureEvidence = requireVerified(failureManifest, 'failure');
+const successEffects = successEvidence.balanceEffects;
+const failureEffects = failureEvidence.balanceEffects;
+const premiumWei =
+  BigInt(successEffects.customerClaimableAfter) - BigInt(successEffects.customerClaimableBefore);
+const payoutWei =
+  BigInt(failureEffects.operatorBondBefore) - BigInt(failureEffects.operatorBondAfter);
+const failureCreditWei =
+  BigInt(failureEffects.customerClaimableAfter) - BigInt(failureEffects.customerClaimableBefore);
+const premiumRefundWei = failureCreditWei - payoutWei;
+
+function toLifecycle(evidence: VerifiedEvidence): VerifiedLifecycle {
+  const success = evidence.outcome === 'success';
+  return {
+    id: evidence.coverageId,
+    sessionId: evidence.sessionId,
+    programId: evidence.programId,
+    programName: 'Tutela live warranty',
+    route: 'Ethereum Sepolia → Creditcoin CC3',
+    customer: evidence.semantics.customer,
+    operator: evidence.semantics.operator,
+    device: evidence.semantics.device,
+    status: success ? 'service-proved' : 'failure-paid',
+    statusLabel: success ? 'Verified success' : 'Verified failure',
+    outcome: evidence.outcome,
+    premium: formatCtcWei(success ? premiumWei : premiumRefundWei),
+    payout: formatCtcWei(payoutWei),
+    customerCredit: formatCtcWei(success ? premiumWei : failureCreditWei),
+    minimumUnits: `${evidence.semantics.minimumUnits} raw unit`,
+    deliveredUnits: evidence.semantics.deliveredUnits
+      ? `${evidence.semantics.deliveredUnits} raw unit`
+      : null,
+    deadline: formatDeadline(evidence.semantics.deadline),
+    deadlineTimestamp: evidence.semantics.deadline,
+    termsHash: evidence.semantics.termsHash,
+    protocolCommit: evidence.protocolCommit,
+    source: evidence.source,
+    destination: evidence.destination,
+    operatorBondBefore: formatCtcWei(evidence.balanceEffects.operatorBondBefore),
+    operatorBondAfter: formatCtcWei(evidence.balanceEffects.operatorBondAfter),
+    customerClaimableBefore: formatCtcWei(evidence.balanceEffects.customerClaimableBefore),
+    customerClaimableAfter: formatCtcWei(evidence.balanceEffects.customerClaimableAfter),
+  };
+}
+
+export const successfulLifecycle = toLifecycle(successEvidence);
+export const failedLifecycle = toLifecycle(failureEvidence);
+export const coverages = [failedLifecycle, successfulLifecycle].sort(
+  (left, right) => right.destination.blockNumber - left.destination.blockNumber
 );
 
-export const previewProgram = {
-  id: 'ev-charge-001',
-  name: 'Voltway Urban Charge',
-  category: 'EV charging',
-  operator: '0x7A61…91C2',
-  device: '0x2d14…4F09',
-  locations: 18,
-  totalBond: '125,000 CTC',
-  availableBond: '98,000 CTC',
-  reservedBond: '27,000 CTC',
-  premium: '6 CTC',
-  payout: '120 CTC',
-  minimumUnits: '18 kWh',
-  sessionDuration: '45 minutes',
-  termsHash: '0x89b9e2b765c114f3a08d85db1d14c2cc1c3b2a6524e683ae3312d3a98e38cc76',
+export const verifiedProgram = {
+  id: successEvidence.programId,
+  name: 'Tutela live warranty',
+  operator: successEvidence.semantics.operator,
+  device: successEvidence.semantics.device,
+  sourceRegistry: successEvidence.source.contract,
+  sourceChainKey: successEvidence.source.chainKey,
+  lifecycleCount: coverages.length,
+  initialBond: formatCtcWei(successEffects.operatorBondBefore),
+  recordedBond: formatCtcWei(failureEffects.operatorBondAfter),
+  payout: formatCtcWei(payoutWei),
+  premium: formatCtcWei(premiumWei),
+  minimumUnits: `${successEvidence.semantics.minimumUnits} raw unit`,
+  termsHash: successEvidence.semantics.termsHash,
 };
 
-export const coverages: DisplayCoverage[] = [
-  {
-    id: 'TUT-7F3A-0192',
-    sessionId: '0x7f3a…0192',
-    programId: previewProgram.id,
-    programName: previewProgram.name,
-    location: 'Marina Hub · Bay 04',
-    customer: '0x8B3e…20A1',
-    operator: previewProgram.operator,
-    device: previewProgram.device,
-    status: 'service-proved',
-    premium: '6 CTC',
-    payout: '120 CTC',
-    minimumUnits: '18 kWh',
-    deliveredUnits: '24.6 kWh',
-    deadline: 'Sep 06, 2026 · 14:45 UTC',
-    termsHash: previewProgram.termsHash,
-    sourceTransaction: '0xa214d904a06907dfbcc7e812a43f3e365d5d18bc58d78eecc0a2c28c61714f09',
-    sourceBlock: '6,872,944',
-    proofId: '0x45dc641876065ea5f9a74cf0ab2876cdb0a5d74d7321226d6283f11b2cb801e3',
-  },
-  {
-    id: 'TUT-41DC-8E07',
-    sessionId: '0x41dc…8e07',
-    programId: previewProgram.id,
-    programName: previewProgram.name,
-    location: 'Lekki Point · Bay 11',
-    customer: '0x91C4…A80B',
-    operator: previewProgram.operator,
-    device: '0x9F35…10D7',
-    status: 'failure-paid',
-    premium: '6 CTC',
-    payout: '120 CTC',
-    minimumUnits: '18 kWh',
-    deliveredUnits: null,
-    deadline: 'Sep 05, 2026 · 09:30 UTC',
-    termsHash: previewProgram.termsHash,
-    sourceTransaction: '0x33eeeb20264e2ff546f44659889ecaa61bc03fc89850312d05653ed36a6ca713',
-    sourceBlock: '6,865,181',
-    proofId: '0x1626ca7f570ae3d32bd28ed4c5029d9a681047674ce88b66969d142a8fc2c711',
-  },
-  {
-    id: 'TUT-C922-117B',
-    sessionId: '0xc922…117b',
-    programId: previewProgram.id,
-    programName: previewProgram.name,
-    location: 'Victoria Island · Bay 02',
-    customer: '0x6a81…E55D',
-    operator: previewProgram.operator,
-    device: '0xA821…B932',
-    status: 'protected',
-    premium: '6 CTC',
-    payout: '120 CTC',
-    minimumUnits: '18 kWh',
-    deliveredUnits: null,
-    deadline: 'Sep 06, 2026 · 17:20 UTC',
-    termsHash: previewProgram.termsHash,
-    sourceTransaction: null,
-    sourceBlock: null,
-    proofId: null,
-  },
-];
-
-export const activity = [
-  {
-    action: 'Service proved',
-    coverage: 'TUT-7F3A-0192',
-    detail: '24.6 kWh verified on Sepolia',
-    time: '12 min ago',
-    tone: 'success',
-  },
-  {
-    action: 'Failure paid',
-    coverage: 'TUT-41DC-8E07',
-    detail: '126 CTC credited to customer',
-    time: '3 hr ago',
-    tone: 'paid',
-  },
-  {
-    action: 'Coverage activated',
-    coverage: 'TUT-C922-117B',
-    detail: '120 CTC bond reserved',
-    time: '5 hr ago',
-    tone: 'active',
-  },
-  {
-    action: 'Program funded',
-    coverage: 'EV-CHARGE-001',
-    detail: '25,000 CTC added to bond',
-    time: 'Yesterday',
-    tone: 'neutral',
-  },
-] as const;
+export const activity = coverages.map((coverage) => ({
+  action: coverage.outcome === 'success' ? 'Success proof settled' : 'Failure proof settled',
+  coverage: coverage.id,
+  detail:
+    coverage.outcome === 'success'
+      ? `${coverage.deliveredUnits} verified; operator premium credited`
+      : `${coverage.customerCredit} credited after deterministic expiry`,
+  time: `CC3 block ${coverage.destination.blockNumber.toLocaleString('en-US')}`,
+  tone: coverage.outcome === 'success' ? ('success' as const) : ('paid' as const),
+  explorerUrl: coverage.destination.explorerUrl,
+}));
 
 export function findCoverage(id?: string) {
   return coverages.find((coverage) => coverage.id.toLowerCase() === id?.toLowerCase());

@@ -1,5 +1,38 @@
 {
   "schemaVersion": "1.0.0",
-  "status": "pending",
-  "outcome": "failure"
+  "status": "verified",
+  "outcome": "failure",
+  "protocolCommit": "2f86d9637bdae625af813159d288422a0154900c",
+  "coverageId": "0xd1c9c247c2aab9ef519b2cceec8ac36121bee6e66e1f8a0d73542b34b18a59ef",
+  "sessionId": "0xc9a2f0eba7bb68fefd83f283653dd397c6d4b0759745c76ee6d387c53832e7a4",
+  "programId": "0x88c009c1caeaa9b2889593791115138e662f8d6e3e6dea58ff03491037187f07",
+  "source": {
+    "chainId": 11155111,
+    "chainKey": 1,
+    "contract": "0x6ecA894E12cE5d498e9b55fD4cFc246995494577",
+    "transactionHash": "0xb34a32183024e6a7d5276c5b74227343b937ac396a4b55ca23fdbac8e746505d",
+    "blockNumber": 11576105,
+    "explorerUrl": "https://sepolia.etherscan.io/tx/0xb34a32183024e6a7d5276c5b74227343b937ac396a4b55ca23fdbac8e746505d"
+  },
+  "destination": {
+    "chainId": 102031,
+    "contract": "0x6ecA894E12cE5d498e9b55fD4cFc246995494577",
+    "transactionHash": "0xde066947de440ac2eb140ebf65fe37b459e781eb646012ec74fda60314c7cf01",
+    "blockNumber": 5381614,
+    "explorerUrl": "https://creditcoin-testnet.blockscout.com/tx/0xde066947de440ac2eb140ebf65fe37b459e781eb646012ec74fda60314c7cf01"
+  },
+  "semantics": {
+    "customer": "0x6a7Ea62C513c68c64e17f3EaBcA7f6fe19DA6dBe",
+    "operator": "0x6a7Ea62C513c68c64e17f3EaBcA7f6fe19DA6dBe",
+    "device": "0x6a7Ea62C513c68c64e17f3EaBcA7f6fe19DA6dBe",
+    "deadline": 1787811930,
+    "minimumUnits": "1",
+    "termsHash": "0x7b0869d92a12518da72259d898c526d065bade5f093f9f62907df2fea71f0e2c"
+  },
+  "balanceEffects": {
+    "operatorBondBefore": "100000000000000000",
+    "operatorBondAfter": "90000000000000000",
+    "customerClaimableBefore": "1000000000000000",
+    "customerClaimableAfter": "12000000000000000"
+  }
 }
