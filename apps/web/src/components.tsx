@@ -1,5 +1,5 @@
 import { CHAIN_IDS } from '@tutela/protocol';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { chainLabel, shortenAddress, useWallet } from './wallet';
 import { successfulLifecycle } from './data';
@@ -121,20 +121,161 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
 }
 
 export function WalletButton({ compact = false }: { compact?: boolean }) {
-  const { address, chainId, connecting, error, connect, switchToCC3 } = useWallet();
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const connectButtonRef = useRef<HTMLButtonElement>(null);
+  const selectorRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef(false);
+  const {
+    address,
+    chainId,
+    connecting,
+    discoveryComplete,
+    error,
+    wallets,
+    connect,
+    discoverWallets,
+    switchToCC3,
+  } = useWallet();
+
+  useEffect(() => {
+    if (!selectorOpen) return;
+    restoreFocusRef.current = true;
+    const selector = selectorRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    selector?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectorOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab' || !selector) return;
+
+      const focusable = Array.from(selector.querySelectorAll<HTMLElement>('button:not(:disabled)'));
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) {
+        event.preventDefault();
+        selector.focus();
+      } else if (
+        event.shiftKey &&
+        (document.activeElement === first || document.activeElement === selector)
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectorOpen]);
+
+  useEffect(() => {
+    if (!selectorOpen && !connecting && restoreFocusRef.current) {
+      connectButtonRef.current?.focus();
+      restoreFocusRef.current = false;
+    }
+  }, [connecting, selectorOpen]);
+
+  const openSelector = () => {
+    discoverWallets();
+    setSelectorOpen(true);
+  };
+
+  const selectWallet = async (walletId: string) => {
+    const connected = await connect(walletId);
+    if (connected) setSelectorOpen(false);
+  };
+
   if (!address) {
     return (
       <>
         <button
+          ref={connectButtonRef}
           className={`button button--ink${compact ? ' button--compact' : ''}`}
           type="button"
-          onClick={() => void connect()}
+          onClick={openSelector}
           disabled={connecting}
         >
           <Icon name="wallet" size={17} />
           {connecting ? 'Connecting…' : 'Connect wallet'}
         </button>
-        {error && (
+        {selectorOpen && (
+          <div className="wallet-selector">
+            <button
+              className="wallet-selector__backdrop"
+              type="button"
+              onClick={() => setSelectorOpen(false)}
+              aria-label="Close wallet selector"
+            />
+            <section
+              ref={selectorRef}
+              className="wallet-selector__panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="wallet-selector-title"
+              tabIndex={-1}
+            >
+              <div className="wallet-selector__header">
+                <div>
+                  <span className="eyebrow">Connect Web3</span>
+                  <h2 id="wallet-selector-title">Choose a wallet</h2>
+                </div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => setSelectorOpen(false)}
+                  aria-label="Close wallet selector"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+              <div className="wallet-selector__list">
+                {wallets.map((wallet) => (
+                  <button
+                    className="wallet-option"
+                    type="button"
+                    key={wallet.id}
+                    onClick={() => void selectWallet(wallet.id)}
+                    disabled={connecting}
+                  >
+                    {wallet.icon ? (
+                      <img src={wallet.icon} alt="" />
+                    ) : (
+                      <span className="wallet-option__icon">
+                        <Icon name="wallet" size={19} />
+                      </span>
+                    )}
+                    <span>
+                      <strong>{wallet.name}</strong>
+                      <small>{wallet.rdns ?? 'Injected browser wallet'}</small>
+                    </span>
+                  </button>
+                ))}
+                {!wallets.length && (
+                  <p className="wallet-selector__status" role="status">
+                    {discoveryComplete
+                      ? 'No browser wallet detected. Install or enable a Web3 wallet extension, then try again.'
+                      : 'Looking for installed wallets…'}
+                  </p>
+                )}
+              </div>
+              {error && (
+                <p className="wallet-selector__error" role="alert">
+                  {error}
+                </p>
+              )}
+            </section>
+          </div>
+        )}
+        {!selectorOpen && error && (
           <span className="wallet-error" role="alert">
             {error}
           </span>
@@ -155,6 +296,11 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
         <span>{chainLabel(chainId)}</span>
         <strong>{shortenAddress(address)}</strong>
       </button>
+      {error && (
+        <span className="wallet-error" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

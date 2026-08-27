@@ -43,7 +43,7 @@ export function NewProgramPage() {
   const [form, setForm] = useState(initialForm);
   const [txState, setTxState] = useState<'idle' | 'signing' | 'submitted' | 'error'>('idle');
   const [txMessage, setTxMessage] = useState('');
-  const { address, chainId } = useWallet();
+  const { address, chainId, selectedProvider } = useWallet();
   const vaultAddress = tutelaVaultAddress;
   const update =
     (key: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -69,11 +69,11 @@ export function NewProgramPage() {
     txState !== 'signing';
 
   async function createProgram() {
-    if (!canSubmit || !vaultAddress || !window.ethereum) return;
+    if (!canSubmit || !vaultAddress || !selectedProvider) return;
     setTxState('signing');
     setTxMessage('Confirm the program bond in your wallet.');
     try {
-      const provider = new BrowserProvider(window.ethereum as never);
+      const provider = new BrowserProvider(selectedProvider as never);
       const signer = await provider.getSigner();
       const vault = new Contract(vaultAddress, tutelaVaultAbi, signer);
       const createProgramCall = vault.getFunction('createProgram');
