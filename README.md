@@ -7,7 +7,7 @@
 <p align="center">Lock collateral before service. Settle from verified delivery. Pay failure without discretion.</p>
 
 <p align="center">
-  <a href="#zero-spend-local-demo">Primary web demo</a> ·
+  <a href="#zero-spend-web-demo">Primary web demo</a> ·
   <a href="#public-testnet-evidence">Evidence</a> ·
   <a href="#verification">Verification</a> ·
   <a href="#protocol-architecture">Optional architecture</a> ·
@@ -136,67 +136,43 @@ The shared program ID is
 `0x88c009c1caeaa9b2889593791115138e662f8d6e3e6dea58ff03491037187f07`. The deployed protocol
 revision recorded by the evidence is `2f86d9637bdae625af813159d288422a0154900c`.
 
-## Zero-spend local demo
+## Zero-spend web demo
 
-**This read-only web experience is the primary and recommended demo.** It requires no wallet,
-private key, keystore, funded account, environment file, contract deployment, prover, or live
-lifecycle execution.
+**Deployed app:** [https://tutela-ctc.vercel.app](https://tutela-ctc.vercel.app)
 
-### 1. Check prerequisites
+The published evidence views are read-only and require no wallet, private key, funded account,
+environment file, prover, or contract deployment.
 
-Install Node.js `24+`, pnpm `11.20.0`, and Git.
+### Latest confirmed program write
 
-```powershell
-node --version
-corepack enable
-corepack prepare pnpm@11.20.0 --activate
-pnpm --version
-```
+> Program confirmed in transaction `0xe7e3d9578f3cf4c262c3b661bce80d07c76bbb7429a2dd9d348737eaee62e87a`. Publish and validate a new evidence manifest before it appears in this app.
 
-### 2. Install dependencies
+This program transaction is intentionally not included in the six published evidence transactions
+until a verified manifest is added.
 
-From the repository root:
+### Run locally
+
+Requires Node.js `24+` and pnpm `11.20.0`.
 
 ```powershell
 pnpm install --frozen-lockfile
-```
-
-### 3. Start the demo
-
-```powershell
 pnpm dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and keep the terminal running.
+Open [http://localhost:5173](http://localhost:5173).
 
-### 4. Present the receipt walkthrough
+### Demo walkthrough
 
 1. Open `/` for the protocol overview and six-transaction evidence summary.
-2. Open `/app` for the evidence dashboard.
-3. Open `/app/coverage` to compare the successful and compensated outcomes.
-4. Open `/app/activity` for settlement activity.
-5. Open the successful receipt at
-   `/receipt/0x60cf6800840d779b92454f6358445bfe66825cc0af748e562accf5276c30444c`.
-6. Open the compensated receipt at
-   `/receipt/0xd1c9c247c2aab9ef519b2cceec8ac36121bee6e66e1f8a0d73542b34b18a59ef`.
-7. Follow the explorer links to the four terminal settlement transactions and two deployment
-   transactions.
-8. Explain that success releases reserved collateral and credits premium, while failure consumes
-   the committed payout and credits the customer.
+2. Open `/app/coverage` to compare the successful and compensated outcomes.
+3. Open `/app/activity` for settlement activity.
+4. Open both `/receipt/<coverageId>` pages and follow their explorer links.
+5. Explain that success releases reserved collateral and credits premium, while failure consumes
+   the committed payout and compensates the customer.
 
 Useful read-only routes are `/`, `/app`, `/app/programs`, `/app/coverage`, `/app/activity`, and
-`/receipt/<coverageId>`.
-
-`/app/programs/new` is a real CC3 write flow and is not part of the zero-spend demo.
-
-### Production preview
-
-```powershell
-pnpm --filter @tutela/web build
-pnpm --filter @tutela/web preview
-```
-
-Open [http://localhost:4173](http://localhost:4173).
+`/receipt/<coverageId>`. `/app/programs/new` is a real CC3 write flow and is not part of the
+zero-spend demo.
 
 ## Verification
 
