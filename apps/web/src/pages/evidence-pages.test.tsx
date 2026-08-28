@@ -1,7 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { failedLifecycle, successfulLifecycle, verifiedProgram } from '../data';
+import {
+  failedLifecycle,
+  publishedTransactionCount,
+  publishedTransactions,
+  successfulLifecycle,
+  verifiedProgram,
+} from '../data';
 import { LandingPage } from './LandingPage';
 import { ProgramsPage } from './AppPages';
 import { ReceiptPage } from './ReceiptPage';
@@ -28,6 +34,12 @@ describe('verified evidence pages', () => {
     expect(html).toContain(successfulLifecycle.premium);
     expect(html).toContain(failedLifecycle.customerCredit);
     expect(html).toContain('VERIFIED TESTNET EVIDENCE / REPOSITORY SNAPSHOT');
+    expect(html).toContain(`${publishedTransactionCount} explorer-backed transactions`);
+    expect(publishedTransactions).toHaveLength(6);
+    for (const transaction of publishedTransactions) {
+      expect(html).toContain(transaction.transactionHash);
+      expect(html).toContain(`href="${transaction.explorerUrl}"`);
+    }
     expect(html).not.toContain('125,000 CTC');
     expect(html).not.toContain('TUT-C922-117B');
     expect(html).not.toContain('PROTOCOL PREVIEW');

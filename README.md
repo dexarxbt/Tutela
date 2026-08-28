@@ -14,10 +14,6 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-<p align="center">
-  <img src="apps/web/public/og-image.svg" width="920" alt="Tutela — service proved, failure paid" />
-</p>
-
 Tutela is a public-testnet prototype for collateral-backed service guarantees. An operator bonds native CTC against immutable service terms before a session begins. A source-chain outcome is proven through Attestcoin, and the Creditcoin CC3 vault releases the premium when service is delivered or compensates the customer when it is not.
 
 The prover transports evidence but does not decide the result. `TutelaVault` accepts only proofs whose chain, registry, event, identities, terms, deadline, and service units match the coverage reserved on CC3.

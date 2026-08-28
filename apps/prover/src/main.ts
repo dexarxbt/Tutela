@@ -4,7 +4,6 @@ import { indexSourceEvents } from './indexer';
 import { logger } from './logger';
 import { createRuntime, processJob } from './processor';
 import { PersistentQueue } from './queue';
-
 const once = process.argv.includes('--once');
 let stopping = false;
 process.on('SIGINT', () => {
@@ -13,7 +12,6 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   stopping = true;
 });
-
 async function runCycle(
   config: ReturnType<typeof loadConfig>,
   runtime: Awaited<ReturnType<typeof createRuntime>>,
@@ -33,7 +31,6 @@ async function runCycle(
     }
   }
 }
-
 async function main() {
   const config = loadConfig();
   const queue = await PersistentQueue.open(config.queueFile, config.SOURCE_START_BLOCK);
@@ -45,17 +42,14 @@ async function main() {
     sourceChainKey: runtime.chainKey,
     mode: once ? 'once' : 'continuous',
   });
-
   do {
     await runCycle(config, runtime, queue);
     if (!once && !stopping) {
       await new Promise((resolve) => setTimeout(resolve, config.POLL_INTERVAL_MS));
     }
   } while (!once && !stopping);
-
   logger.info('prover-stopped');
 }
-
 main().catch((error: unknown) => {
   logger.error('prover-fatal', {
     error: error instanceof Error ? error.message : String(error),

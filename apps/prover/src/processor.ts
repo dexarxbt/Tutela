@@ -6,7 +6,6 @@ import { createDestinationSigner } from './signer';
 import { logger } from './logger';
 import type { PersistentQueue, ProofJob } from './queue';
 import { validateSourceReceipt } from './semantics';
-
 export interface ProverRuntime {
   sourceProvider: JsonRpcProvider;
   destinationProvider: JsonRpcProvider;
@@ -16,7 +15,6 @@ export interface ProverRuntime {
   precompile: blockProver.PrecompileBlockProver;
   vault: Contract;
 }
-
 export async function createRuntime(config: ProverConfig): Promise<ProverRuntime> {
   const sourceProvider = new JsonRpcProvider(config.SEPOLIA_RPC_URL);
   const destinationProvider = new JsonRpcProvider(config.CC3_RPC_URL);
@@ -32,14 +30,12 @@ export async function createRuntime(config: ProverConfig): Promise<ProverRuntime
       `Expected CC3 testnet ${CHAIN_IDS.cc3Testnet}, received ${destinationNetwork.chainId}`
     );
   }
-
   const chainInfoProvider = new chainInfo.PrecompileChainInfoProvider(destinationProvider);
   const supportedChains = await chainInfoProvider.getSupportedChains();
   const sourceChain = supportedChains.find(
     (chain) => chain.chainId === config.expectedSourceChainId
   );
   if (!sourceChain) throw new Error('Sepolia is not currently supported by CC3 ChainInfo');
-
   const wallet = await createDestinationSigner(config, destinationProvider);
   return {
     sourceProvider,
@@ -54,7 +50,6 @@ export async function createRuntime(config: ProverConfig): Promise<ProverRuntime
     vault: new Contract(config.TUTELA_VAULT_ADDRESS, tutelaVaultAbi, wallet),
   };
 }
-
 export async function processJob(
   config: ProverConfig,
   runtime: ProverRuntime,
@@ -66,7 +61,6 @@ export async function processJob(
   if (receipt.blockNumber !== job.blockNumber)
     throw new Error('Source transaction was reorganized');
   await queue.update(job.transactionHash, { status: 'source-confirmed', error: undefined });
-
   const semantics = validateSourceReceipt(job.action, receipt, config.SOURCE_REGISTRY_ADDRESS);
   await queue.update(job.transactionHash, { status: 'awaiting-attestation' });
   await runtime.proofBuilder.waitUntilHeightAttested(
@@ -75,7 +69,6 @@ export async function processJob(
     config.POLL_INTERVAL_MS,
     config.ATTESTATION_TIMEOUT_MS
   );
-
   const result = await runtime.proofBuilder.getProof(job.transactionHash);
   if (!result.success || !result.data) {
     throw new Error(result.error ?? 'Proof builder returned no proof');
@@ -85,7 +78,6 @@ export async function processJob(
     throw new Error('Proof metadata does not match the source receipt');
   }
   await queue.update(job.transactionHash, { status: 'proof-ready' });
-
   const verified = await runtime.precompile.verifySingle(
     proof.chainKey,
     proof.headerNumber,
@@ -95,7 +87,6 @@ export async function processJob(
   );
   if (!verified) throw new Error('CC3 preflight rejected the Attestcoin proof');
   await queue.update(job.transactionHash, { status: 'simulated' });
-
   const submitProof = runtime.vault.getFunction('submitProof');
   const transaction = await submitProof(
     job.action,
@@ -111,7 +102,6 @@ export async function processJob(
     status: 'submitted',
     destinationTransactionHash: transaction.hash,
   });
-
   const destinationReceipt = await transaction.wait(config.CONFIRMATIONS);
   if (!destinationReceipt || destinationReceipt.status !== 1) {
     throw new Error('Destination proof transaction failed');

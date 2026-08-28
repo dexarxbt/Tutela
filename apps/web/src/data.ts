@@ -1,4 +1,11 @@
-import { evidenceManifestSchema, type VerifiedEvidenceManifest } from '@tutela/protocol';
+import {
+  CHAIN_IDS,
+  EXPLORERS,
+  deploymentManifestSchema,
+  evidenceManifestSchema,
+  type DeploymentManifest,
+  type VerifiedEvidenceManifest,
+} from '@tutela/protocol';
 
 type EvidenceRecord = {
   file: string;
@@ -248,7 +255,174 @@ export const evidenceCounts = {
   success: coverages.filter((coverage) => coverage.outcome === 'success').length,
   failure: coverages.filter((coverage) => coverage.outcome === 'failure').length,
 };
-export const publishedTransactionCount = 2 + evidenceCounts.total * 2;
+
+export type PublishedTransaction = {
+  label: string;
+  stage: 'Deployment' | 'Source authority' | 'Proof settlement';
+  outcome: 'infrastructure' | 'success' | 'failure';
+  network: 'Ethereum Sepolia' | 'Creditcoin CC3';
+  transactionHash: string;
+  blockNumber: number;
+  explorerUrl: string;
+};
+
+const publishedChains = {
+  sepolia: {
+    chainId: CHAIN_IDS.sepolia,
+    manifestNetwork: 'ethereum-sepolia',
+    label: 'Ethereum Sepolia',
+    explorer: EXPLORERS.sepolia,
+  },
+  cc3Testnet: {
+    chainId: CHAIN_IDS.cc3Testnet,
+    manifestNetwork: 'creditcoin-cc3-testnet',
+    label: 'Creditcoin CC3',
+    explorer: EXPLORERS.cc3Testnet,
+  },
+} as const;
+
+type PublishedChain = keyof typeof publishedChains;
+type TransactionReference = Pick<
+  VerifiedEvidenceManifest['source'],
+  'chainId' | 'transactionHash' | 'explorerUrl'
+>;
+
+export function validatePublishedTransactionReference(
+  transaction: TransactionReference,
+  expectedChain: PublishedChain
+) {
+  const chain = publishedChains[expectedChain];
+  if (transaction.chainId !== chain.chainId) {
+    throw new Error(`Published transaction must use ${chain.label}`);
+  }
+  const expectedUrl = `${chain.explorer}/tx/${transaction.transactionHash}`;
+  if (transaction.explorerUrl.toLowerCase() !== expectedUrl.toLowerCase()) {
+    throw new Error(`Published transaction explorer URL does not match its hash`);
+  }
+}
+
+function loadDeploymentTransaction(
+  input: unknown,
+  contractName: string,
+  label: string,
+  expectedChain: PublishedChain
+): PublishedTransaction {
+  const result = deploymentManifestSchema.safeParse(input);
+  if (!result.success) throw new Error(`${contractName} deployment manifest is invalid`);
+  const manifest: DeploymentManifest = result.data;
+  const chain = publishedChains[expectedChain];
+  if (manifest.status !== 'deployed') throw new Error(`${contractName} is not deployed`);
+  if (manifest.network !== chain.manifestNetwork || manifest.chainId !== chain.chainId) {
+    throw new Error(`${contractName} deployment must use ${chain.label}`);
+  }
+  const contract = manifest.contracts.find((candidate) => candidate.name === contractName);
+  if (
+    !contract?.deploymentTransaction ||
+    contract.deploymentBlock === undefined ||
+    !contract.explorerUrl
+  ) {
+    throw new Error(`${contractName} deployment evidence is incomplete`);
+  }
+  validatePublishedTransactionReference(
+    {
+      chainId: manifest.chainId,
+      transactionHash: contract.deploymentTransaction,
+      explorerUrl: contract.explorerUrl,
+    },
+    expectedChain
+  );
+  return {
+    label,
+    stage: 'Deployment',
+    outcome: 'infrastructure',
+    network: chain.label,
+    transactionHash: contract.deploymentTransaction,
+    blockNumber: contract.deploymentBlock,
+    explorerUrl: contract.explorerUrl,
+  };
+}
+
+function loadLifecycleTransaction(
+  transaction: VerifiedEvidenceManifest['source'],
+  label: string,
+  stage: PublishedTransaction['stage'],
+  outcome: PublishedTransaction['outcome'],
+  expectedChain: PublishedChain
+): PublishedTransaction {
+  validatePublishedTransactionReference(transaction, expectedChain);
+  return {
+    label,
+    stage,
+    outcome,
+    network: publishedChains[expectedChain].label,
+    transactionHash: transaction.transactionHash,
+    blockNumber: transaction.blockNumber,
+    explorerUrl: transaction.explorerUrl,
+  };
+}
+
+const deploymentModules = import.meta.glob('../../../deployments/*.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, unknown>;
+
+function deploymentFile(file: string) {
+  const entry = Object.entries(deploymentModules).find(([path]) => evidenceFile(path) === file);
+  if (!entry) throw new Error(`deployments/${file}: deployment manifest is unavailable`);
+  return entry[1];
+}
+
+export const publishedTransactions: PublishedTransaction[] = [
+  loadDeploymentTransaction(
+    deploymentFile('sepolia.json'),
+    'ServiceSessionRegistry',
+    'Registry deployed',
+    'sepolia'
+  ),
+  loadDeploymentTransaction(
+    deploymentFile('cc3-testnet.json'),
+    'TutelaVault',
+    'Vault deployed',
+    'cc3Testnet'
+  ),
+  loadLifecycleTransaction(
+    successfulLifecycle.source,
+    'Successful service recorded',
+    'Source authority',
+    'success',
+    'sepolia'
+  ),
+  loadLifecycleTransaction(
+    successfulLifecycle.destination,
+    'Success proof settled',
+    'Proof settlement',
+    'success',
+    'cc3Testnet'
+  ),
+  loadLifecycleTransaction(
+    failedLifecycle.source,
+    'Service failure recorded',
+    'Source authority',
+    'failure',
+    'sepolia'
+  ),
+  loadLifecycleTransaction(
+    failedLifecycle.destination,
+    'Failure compensation settled',
+    'Proof settlement',
+    'failure',
+    'cc3Testnet'
+  ),
+];
+
+const uniquePublishedTransactions = new Set(
+  publishedTransactions.map((transaction) => transaction.transactionHash.toLowerCase())
+);
+if (uniquePublishedTransactions.size !== publishedTransactions.length) {
+  throw new Error('Published transaction evidence contains duplicate hashes');
+}
+
+export const publishedTransactionCount = publishedTransactions.length;
 
 const successEffects = featuredSuccess.evidence.balanceEffects;
 const failureEffects = featuredFailure.evidence.balanceEffects;

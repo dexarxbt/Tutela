@@ -5,11 +5,11 @@ import {
   evidenceCounts,
   failedLifecycle,
   publishedTransactionCount,
+  publishedTransactions,
   shortHash,
   successfulLifecycle,
   verifiedProgram,
 } from '../data';
-
 export function LandingPage() {
   return (
     <div className="landing">
@@ -17,6 +17,7 @@ export function LandingPage() {
         <Brand />
         <nav aria-label="Primary navigation">
           <a href="#protocol">Protocol</a>
+          <a href="#evidence">Evidence</a>
           <a href="#lifecycle">Lifecycle</a>
           <a href="#integration">Attestcoin</a>
         </nav>
@@ -126,7 +127,73 @@ export function LandingPage() {
             </div>
           </div>
         </section>
-
+        <section className="public-evidence" id="evidence">
+          <div className="public-evidence__heading">
+            <span className="section-index">PUBLIC TESTNET EVIDENCE</span>
+            <div>
+              <h2>Six transactions. Every claim inspectable.</h2>
+              <p>
+                Two contract deployments anchor two complete service lifecycles: one verified
+                success and one compensated failure. Each record links directly to its public
+                explorer.
+              </p>
+            </div>
+          </div>
+          <div className="public-evidence__summary" aria-label="Published evidence summary">
+            <div>
+              <strong>{publishedTransactionCount}</strong>
+              <span>public transactions</span>
+            </div>
+            <div>
+              <strong>2</strong>
+              <span>contract deployments</span>
+            </div>
+            <div>
+              <strong>{evidenceCounts.success}</strong>
+              <span>verified success</span>
+            </div>
+            <div>
+              <strong>{evidenceCounts.failure}</strong>
+              <span>compensated failure</span>
+            </div>
+          </div>
+          <div className="public-evidence__grid">
+            {publishedTransactions.map((transaction, index) => (
+              <a
+                className={`evidence-transaction evidence-transaction--${transaction.outcome}`}
+                href={transaction.explorerUrl}
+                key={transaction.transactionHash}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="evidence-transaction__number">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className="evidence-transaction__stage">{transaction.stage}</span>
+                <strong>{transaction.label}</strong>
+                <span className="evidence-transaction__network">{transaction.network}</span>
+                <span
+                  className="evidence-transaction__hash mono"
+                  title={transaction.transactionHash}
+                >
+                  {shortHash(transaction.transactionHash, 12, 10)}
+                </span>
+                <span className="evidence-transaction__block">
+                  Block {transaction.blockNumber.toLocaleString('en-US')}
+                  <Icon name="external" size={14} />
+                </span>
+              </a>
+            ))}
+          </div>
+          <div className="public-evidence__receipts">
+            <Link className="text-link" to={`/receipt/${successfulLifecycle.id}`}>
+              Read success receipt <Icon name="arrow" size={16} />
+            </Link>
+            <Link className="text-link" to={`/receipt/${failedLifecycle.id}`}>
+              Read failure receipt <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+        </section>
         <section className="statement" id="protocol">
           <span className="section-index">01 / THE PROBLEM</span>
           <div>
@@ -142,7 +209,6 @@ export function LandingPage() {
             </p>
           </div>
         </section>
-
         <section className="contrast-grid">
           <article className="contrast-card contrast-card--muted">
             <span className="card-label">Without Tutela</span>
@@ -183,7 +249,6 @@ export function LandingPage() {
             <div className="contrast-outcome">Failure paid by protocol.</div>
           </article>
         </section>
-
         <section className="lifecycle" id="lifecycle">
           <div className="section-heading">
             <span className="section-index">02 / PROTECTED LIFECYCLE</span>
@@ -245,7 +310,6 @@ export function LandingPage() {
             </article>
           </div>
         </section>
-
         <section className="architecture" id="integration">
           <div className="architecture__copy">
             <span className="section-index">03 / ATTESTCOIN INTEGRATION</span>
@@ -294,7 +358,6 @@ export function LandingPage() {
             </div>
           </div>
         </section>
-
         <section className="truth-boundary">
           <div>
             <span className="section-index">04 / TRUTH BOUNDARY</span>
@@ -326,7 +389,6 @@ export function LandingPage() {
             </article>
           </div>
         </section>
-
         <section className="final-cta">
           <div className="final-cta__mark">
             <span>[</span>

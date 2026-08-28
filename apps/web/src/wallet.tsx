@@ -1,16 +1,7 @@
 import { CHAIN_IDS } from '@tutela/protocol';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 const CC3_CHAIN_ID = CHAIN_IDS.cc3Testnet;
 const SEPOLIA_CHAIN_ID = CHAIN_IDS.sepolia;
-
 export type EthereumProvider = {
   request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
   on?(event: string, listener: (...args: unknown[]) => void): void;
@@ -21,7 +12,6 @@ export type EthereumProvider = {
   isBraveWallet?: boolean;
   isRabby?: boolean;
 };
-
 type Eip6963ProviderDetail = {
   info: {
     uuid: string;
@@ -31,7 +21,6 @@ type Eip6963ProviderDetail = {
   };
   provider: EthereumProvider;
 };
-
 export type WalletOption = {
   id: string;
   name: string;
@@ -39,13 +28,11 @@ export type WalletOption = {
   rdns: string | null;
   provider: EthereumProvider;
 };
-
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
   }
 }
-
 type WalletContextValue = {
   address: string | null;
   chainId: number | null;
@@ -59,13 +46,10 @@ type WalletContextValue = {
   discoverWallets(): void;
   switchToCC3(): Promise<void>;
 };
-
 const WalletContext = createContext<WalletContextValue | null>(null);
-
 function parseChainId(value: unknown) {
   return typeof value === 'string' ? Number.parseInt(value, 16) : null;
 }
-
 function legacyWalletName(provider: EthereumProvider, index: number, total: number) {
   if (provider.isRabby) return 'Rabby Wallet';
   if (provider.isCoinbaseWallet) return 'Coinbase Wallet';
@@ -73,11 +57,9 @@ function legacyWalletName(provider: EthereumProvider, index: number, total: numb
   if (provider.isMetaMask) return 'MetaMask';
   return total > 1 ? `Browser wallet ${index + 1}` : 'Browser wallet';
 }
-
 function safeWalletIcon(value: string) {
   return /^data:image\/(?:gif|jpeg|png|svg\+xml|webp)(?:;[^,]*)?,/i.test(value) ? value : null;
 }
-
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -86,23 +68,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [wallets, setWallets] = useState<WalletOption[]>([]);
   const [discoveryComplete, setDiscoveryComplete] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<EthereumProvider | null>(null);
-
   const addWallet = useCallback((wallet: WalletOption) => {
     setWallets((current) => {
       const existingIndex = current.findIndex(
         (candidate) => candidate.id === wallet.id || candidate.provider === wallet.provider
       );
       if (existingIndex === -1) return [...current, wallet];
-
       const existing = current[existingIndex];
       if (!existing || existing.rdns || !wallet.rdns) return current;
-
       const updated = [...current];
       updated[existingIndex] = wallet;
       return updated;
     });
   }, []);
-
   const addLegacyWallets = useCallback(() => {
     const injected = window.ethereum;
     const legacyProviders = injected?.providers?.length
@@ -122,12 +100,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     });
     setDiscoveryComplete(true);
   }, [addWallet]);
-
   const discoverWallets = useCallback(() => {
     window.dispatchEvent(new Event('eip6963:requestProvider'));
     addLegacyWallets();
   }, [addLegacyWallets]);
-
   useEffect(() => {
     const handleAnnouncement = (event: Event) => {
       const detail = (event as CustomEvent<Eip6963ProviderDetail>).detail;
@@ -140,20 +116,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         provider: detail.provider,
       });
     };
-
     window.addEventListener('eip6963:announceProvider', handleAnnouncement);
     window.dispatchEvent(new Event('eip6963:requestProvider'));
     const legacyTimer = window.setTimeout(addLegacyWallets, 250);
-
     return () => {
       window.clearTimeout(legacyTimer);
       window.removeEventListener('eip6963:announceProvider', handleAnnouncement);
     };
   }, [addLegacyWallets, addWallet]);
-
   useEffect(() => {
     if (!selectedProvider) return;
-
     const handleAccounts = (...args: unknown[]) => {
       const accounts = args[0] as string[];
       setAddress(accounts[0] ?? null);
@@ -161,13 +133,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const handleChain = (...args: unknown[]) => setChainId(parseChainId(args[0]));
     selectedProvider.on?.('accountsChanged', handleAccounts);
     selectedProvider.on?.('chainChanged', handleChain);
-
     return () => {
       selectedProvider.removeListener?.('accountsChanged', handleAccounts);
       selectedProvider.removeListener?.('chainChanged', handleChain);
     };
   }, [selectedProvider]);
-
   const connect = useCallback(
     async (walletId: string) => {
       const wallet = wallets.find((candidate) => candidate.id === walletId);
@@ -176,7 +146,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setError('That wallet is no longer available. Reopen the selector and try again.');
         return false;
       }
-
       setConnecting(true);
       try {
         const accounts = (await wallet.provider.request({
@@ -196,7 +165,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     },
     [wallets]
   );
-
   const switchToCC3 = useCallback(async () => {
     if (!selectedProvider) return;
     setError(null);
@@ -209,7 +177,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError(reason instanceof Error ? reason.message : 'Unable to switch to Creditcoin CC3.');
     }
   }, [selectedProvider]);
-
   const value = useMemo(
     () => ({
       address,
@@ -237,23 +204,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       switchToCC3,
     ]
   );
-
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
-
 export function useWallet() {
   const wallet = useContext(WalletContext);
   if (!wallet) throw new Error('useWallet must be used inside WalletProvider');
   return wallet;
 }
-
 export function chainLabel(chainId: number | null) {
   if (chainId === CC3_CHAIN_ID) return 'Creditcoin CC3';
   if (chainId === SEPOLIA_CHAIN_ID) return 'Sepolia';
   if (chainId === null) return 'Not connected';
   return `Chain ${chainId}`;
 }
-
 export function shortenAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }

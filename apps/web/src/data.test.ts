@@ -5,6 +5,7 @@ import {
   findCoverage,
   formatCtcWei,
   successfulLifecycle,
+  validatePublishedTransactionReference,
   verifiedProgram,
 } from './data';
 
@@ -26,6 +27,24 @@ describe('verified evidence adapter', () => {
     expect(successfulLifecycle.destination.explorerUrl).toBe(
       `https://creditcoin-testnet.blockscout.com/tx/${successfulLifecycle.destination.transactionHash}`
     );
+  });
+
+  it('rejects mismatched public transaction references', () => {
+    expect(() =>
+      validatePublishedTransactionReference(
+        { ...successfulLifecycle.source, chainId: 102031 },
+        'sepolia'
+      )
+    ).toThrow('Published transaction must use Ethereum Sepolia');
+    expect(() =>
+      validatePublishedTransactionReference(
+        {
+          ...successfulLifecycle.source,
+          explorerUrl: 'https://sepolia.etherscan.io/tx/0xdead',
+        },
+        'sepolia'
+      )
+    ).toThrow('Published transaction explorer URL does not match its hash');
   });
 
   it('adapts the exact published failure and balance deltas', () => {

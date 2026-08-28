@@ -1,7 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ProofAction } from '@tutela/protocol';
-
 export type JobStatus =
   | 'discovered'
   | 'source-confirmed'
@@ -11,7 +10,6 @@ export type JobStatus =
   | 'submitted'
   | 'confirmed'
   | 'rejected';
-
 export interface ProofJob {
   transactionHash: string;
   action: ProofAction;
@@ -23,29 +21,24 @@ export interface ProofJob {
   error?: string;
   updatedAt: string;
 }
-
 interface QueueState {
   version: 1;
   sourceCursor: number;
   jobs: Record<string, ProofJob>;
 }
-
 const emptyState = (sourceCursor: number): QueueState => ({
   version: 1,
   sourceCursor,
   jobs: {},
 });
-
 export class PersistentQueue {
   private state: QueueState;
-
   private constructor(
     private readonly file: string,
     state: QueueState
   ) {
     this.state = state;
   }
-
   static async open(file: string, initialCursor: number) {
     try {
       const state = JSON.parse(await readFile(file, 'utf8')) as QueueState;
@@ -58,17 +51,14 @@ export class PersistentQueue {
       return queue;
     }
   }
-
   get cursor() {
     return this.state.sourceCursor;
   }
-
   async setCursor(cursor: number) {
     if (cursor <= this.state.sourceCursor) return;
     this.state.sourceCursor = cursor;
     await this.persist();
   }
-
   async discover(job: Pick<ProofJob, 'transactionHash' | 'action' | 'blockNumber'>) {
     const key = job.transactionHash.toLowerCase();
     if (this.state.jobs[key]) return;
@@ -81,7 +71,6 @@ export class PersistentQueue {
     };
     await this.persist();
   }
-
   pending(now = Date.now()) {
     return Object.values(this.state.jobs)
       .filter(
@@ -89,7 +78,6 @@ export class PersistentQueue {
       )
       .sort((left, right) => left.blockNumber - right.blockNumber);
   }
-
   async update(transactionHash: string, patch: Partial<ProofJob>) {
     const key = transactionHash.toLowerCase();
     const current = this.state.jobs[key];
@@ -97,7 +85,6 @@ export class PersistentQueue {
     this.state.jobs[key] = { ...current, ...patch, updatedAt: new Date().toISOString() };
     await this.persist();
   }
-
   async retry(transactionHash: string, error: unknown) {
     const key = transactionHash.toLowerCase();
     const current = this.state.jobs[key];
@@ -112,7 +99,6 @@ export class PersistentQueue {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-
   private async persist() {
     await mkdir(dirname(this.file), { recursive: true });
     const temporary = `${this.file}.tmp`;
