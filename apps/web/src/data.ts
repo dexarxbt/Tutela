@@ -1,17 +1,9 @@
-import type { EvidenceManifest } from '@tutela/protocol';
-import failureManifest from '../../../evidence/failure.json';
-import successManifest from '../../../evidence/success.json';
+import { evidenceManifestSchema, type VerifiedEvidenceManifest } from '@tutela/protocol';
 
-type VerifiedEvidence = EvidenceManifest & {
-  status: 'verified';
-  coverageId: string;
-  sessionId: string;
-  programId: string;
-  protocolCommit: string;
-  source: NonNullable<EvidenceManifest['source']>;
-  destination: NonNullable<EvidenceManifest['destination']>;
-  semantics: NonNullable<EvidenceManifest['semantics']>;
-  balanceEffects: NonNullable<EvidenceManifest['balanceEffects']>;
+type EvidenceRecord = {
+  file: string;
+  path: string;
+  evidence: VerifiedEvidenceManifest;
 };
 
 export type VerifiedLifecycle = {
@@ -35,8 +27,8 @@ export type VerifiedLifecycle = {
   deadlineTimestamp: number;
   termsHash: string;
   protocolCommit: string;
-  source: VerifiedEvidence['source'];
-  destination: VerifiedEvidence['destination'];
+  source: VerifiedEvidenceManifest['source'];
+  destination: VerifiedEvidenceManifest['destination'];
   operatorBondBefore: string;
   operatorBondAfter: string;
   customerClaimableBefore: string;
@@ -49,23 +41,107 @@ export const tutelaVaultAddress =
   import.meta.env.VITE_TUTELA_VAULT_ADDRESS ?? '0x6ecA894E12cE5d498e9b55fD4cFc246995494577';
 export const deploymentReady = Boolean(sourceRegistryAddress && tutelaVaultAddress);
 
-function requireVerified(input: unknown, outcome: 'success' | 'failure'): VerifiedEvidence {
-  const evidence = input as Partial<VerifiedEvidence>;
-  if (
-    evidence.status !== 'verified' ||
-    evidence.outcome !== outcome ||
-    !evidence.coverageId ||
-    !evidence.sessionId ||
-    !evidence.programId ||
-    !evidence.protocolCommit ||
-    !evidence.source ||
-    !evidence.destination ||
-    !evidence.semantics ||
-    !evidence.balanceEffects
-  ) {
-    throw new Error(`Verified ${outcome} evidence is unavailable`);
+function compareText(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function evidenceFile(path: string) {
+  return path.replaceAll('\\', '/').split('/').at(-1) ?? path;
+}
+
+function formatIssues(file: string, evidence: unknown) {
+  const result = evidenceManifestSchema.safeParse(evidence);
+  if (result.success) return result.data;
+  const issues = result.error.issues
+    .map((issue) => `${issue.path.join('.') || 'manifest'}: ${issue.message}`)
+    .join('; ');
+  throw new Error(`evidence/${file}: ${issues}`);
+}
+
+function assertUnique(records: EvidenceRecord[]) {
+  const fields = [
+    ['coverage ID', (record: EvidenceRecord) => record.evidence.coverageId],
+    ['session ID', (record: EvidenceRecord) => record.evidence.sessionId],
+    ['source transaction', (record: EvidenceRecord) => record.evidence.source.transactionHash],
+    [
+      'destination transaction',
+      (record: EvidenceRecord) => record.evidence.destination.transactionHash,
+    ],
+  ] as const;
+
+  for (const [label, select] of fields) {
+    const seen = new Map<string, string>();
+    for (const record of records) {
+      const value = select(record).toLowerCase();
+      const duplicate = seen.get(value);
+      if (duplicate) {
+        throw new Error(
+          `evidence/${record.file}: duplicate ${label} also appears in evidence/${duplicate}`
+        );
+      }
+      seen.set(value, record.file);
+    }
   }
-  return evidence as VerifiedEvidence;
+}
+
+function assertConsistentProgram(records: EvidenceRecord[]) {
+  const reference = records[0]!;
+  const sameHex = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+  for (const record of records.slice(1)) {
+    const current = record.evidence;
+    const expected = reference.evidence;
+    if (
+      !sameHex(current.protocolCommit, expected.protocolCommit) ||
+      !sameHex(current.programId, expected.programId) ||
+      !sameHex(current.semantics.operator, expected.semantics.operator) ||
+      !sameHex(current.semantics.customer, expected.semantics.customer) ||
+      !sameHex(current.semantics.device, expected.semantics.device) ||
+      !sameHex(current.semantics.termsHash, expected.semantics.termsHash) ||
+      current.semantics.minimumUnits !== expected.semantics.minimumUnits
+    ) {
+      throw new Error(
+        `evidence/${record.file}: manifest does not describe the same deployed program as evidence/${reference.file}`
+      );
+    }
+  }
+}
+
+function loadEvidenceCollection(): EvidenceRecord[] {
+  const modules = import.meta.glob('../../../evidence/*.json', {
+    eager: true,
+    import: 'default',
+  }) as Record<string, unknown>;
+  const parsed = Object.entries(modules)
+    .sort(([left], [right]) => compareText(left, right))
+    .map(([path, input]) => ({
+      path,
+      file: evidenceFile(path),
+      evidence: formatIssues(evidenceFile(path), input),
+    }));
+
+  if (parsed.length === 0) throw new Error('No evidence manifests were discovered');
+  const status = parsed[0]!.evidence.status;
+  const differentStatus = parsed.find((record) => record.evidence.status !== status);
+  if (differentStatus) {
+    throw new Error(
+      `evidence/${differentStatus.file}: evidence manifests must be all pending or all verified`
+    );
+  }
+  if (status !== 'verified') throw new Error('Verified evidence is unavailable');
+
+  const records = parsed as EvidenceRecord[];
+  assertUnique(records);
+  assertConsistentProgram(records);
+  return records;
+}
+
+function featuredRecord(records: EvidenceRecord[], file: string, outcome: 'success' | 'failure') {
+  const record = records.find((candidate) => candidate.file === file);
+  if (!record) throw new Error(`evidence/${file}: featured evidence manifest is unavailable`);
+  if (record.evidence.outcome !== outcome) {
+    throw new Error(`evidence/${file}: outcome must be ${outcome}`);
+  }
+  return record;
 }
 
 export function formatCtcWei(value: string | bigint) {
@@ -86,20 +162,34 @@ export function formatDeadline(timestamp: number) {
   return `${new Date(timestamp * 1_000).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-const successEvidence = requireVerified(successManifest, 'success');
-const failureEvidence = requireVerified(failureManifest, 'failure');
-const successEffects = successEvidence.balanceEffects;
-const failureEffects = failureEvidence.balanceEffects;
-const premiumWei =
-  BigInt(successEffects.customerClaimableAfter) - BigInt(successEffects.customerClaimableBefore);
-const payoutWei =
-  BigInt(failureEffects.operatorBondBefore) - BigInt(failureEffects.operatorBondAfter);
-const failureCreditWei =
-  BigInt(failureEffects.customerClaimableAfter) - BigInt(failureEffects.customerClaimableBefore);
-const premiumRefundWei = failureCreditWei - payoutWei;
+function deriveEconomics(evidence: VerifiedEvidenceManifest) {
+  const operatorBondDelta =
+    BigInt(evidence.balanceEffects.operatorBondBefore) -
+    BigInt(evidence.balanceEffects.operatorBondAfter);
+  const customerCredit =
+    BigInt(evidence.balanceEffects.customerClaimableAfter) -
+    BigInt(evidence.balanceEffects.customerClaimableBefore);
+  if (operatorBondDelta < 0n || customerCredit <= 0n) {
+    throw new Error('Verified evidence contains invalid balance effects');
+  }
+  if (evidence.outcome === 'success') {
+    if (operatorBondDelta !== 0n)
+      throw new Error('Verified success evidence consumes operator bond');
+    return { premium: customerCredit, payout: 0n, customerCredit };
+  }
+  if (operatorBondDelta <= 0n || customerCredit <= operatorBondDelta) {
+    throw new Error('Verified failure evidence has invalid payout or premium refund effects');
+  }
+  return {
+    premium: customerCredit - operatorBondDelta,
+    payout: operatorBondDelta,
+    customerCredit,
+  };
+}
 
-function toLifecycle(evidence: VerifiedEvidence): VerifiedLifecycle {
+function toLifecycle(evidence: VerifiedEvidenceManifest): VerifiedLifecycle {
   const success = evidence.outcome === 'success';
+  const economics = deriveEconomics(evidence);
   return {
     id: evidence.coverageId,
     sessionId: evidence.sessionId,
@@ -112,9 +202,9 @@ function toLifecycle(evidence: VerifiedEvidence): VerifiedLifecycle {
     status: success ? 'service-proved' : 'failure-paid',
     statusLabel: success ? 'Verified success' : 'Verified failure',
     outcome: evidence.outcome,
-    premium: formatCtcWei(success ? premiumWei : premiumRefundWei),
-    payout: formatCtcWei(payoutWei),
-    customerCredit: formatCtcWei(success ? premiumWei : failureCreditWei),
+    premium: formatCtcWei(economics.premium),
+    payout: formatCtcWei(economics.payout),
+    customerCredit: formatCtcWei(economics.customerCredit),
     minimumUnits: `${evidence.semantics.minimumUnits} raw unit`,
     deliveredUnits: evidence.semantics.deliveredUnits
       ? `${evidence.semantics.deliveredUnits} raw unit`
@@ -132,26 +222,52 @@ function toLifecycle(evidence: VerifiedEvidence): VerifiedLifecycle {
   };
 }
 
-export const successfulLifecycle = toLifecycle(successEvidence);
-export const failedLifecycle = toLifecycle(failureEvidence);
-export const coverages = [failedLifecycle, successfulLifecycle].sort(
-  (left, right) => right.destination.blockNumber - left.destination.blockNumber
-);
+const evidenceRecords = loadEvidenceCollection();
+const lifecycleRecords = evidenceRecords.map((record) => ({
+  ...record,
+  lifecycle: toLifecycle(record.evidence),
+}));
+const featuredSuccess = featuredRecord(evidenceRecords, 'success.json', 'success');
+const featuredFailure = featuredRecord(evidenceRecords, 'failure.json', 'failure');
+
+export const successfulLifecycle = lifecycleRecords.find(
+  (record) => record.path === featuredSuccess.path
+)!.lifecycle;
+export const failedLifecycle = lifecycleRecords.find(
+  (record) => record.path === featuredFailure.path
+)!.lifecycle;
+export const coverages = lifecycleRecords
+  .toSorted(
+    (left, right) =>
+      right.lifecycle.destination.blockNumber - left.lifecycle.destination.blockNumber ||
+      compareText(left.path, right.path)
+  )
+  .map((record) => record.lifecycle);
+export const evidenceCounts = {
+  total: coverages.length,
+  success: coverages.filter((coverage) => coverage.outcome === 'success').length,
+  failure: coverages.filter((coverage) => coverage.outcome === 'failure').length,
+};
+
+const successEffects = featuredSuccess.evidence.balanceEffects;
+const failureEffects = featuredFailure.evidence.balanceEffects;
+const featuredSuccessEconomics = deriveEconomics(featuredSuccess.evidence);
+const featuredFailureEconomics = deriveEconomics(featuredFailure.evidence);
 
 export const verifiedProgram = {
-  id: successEvidence.programId,
+  id: featuredSuccess.evidence.programId,
   name: 'Tutela live warranty',
-  operator: successEvidence.semantics.operator,
-  device: successEvidence.semantics.device,
-  sourceRegistry: successEvidence.source.contract,
-  sourceChainKey: successEvidence.source.chainKey,
+  operator: featuredSuccess.evidence.semantics.operator,
+  device: featuredSuccess.evidence.semantics.device,
+  sourceRegistry: featuredSuccess.evidence.source.contract,
+  sourceChainKey: featuredSuccess.evidence.source.chainKey,
   lifecycleCount: coverages.length,
   initialBond: formatCtcWei(successEffects.operatorBondBefore),
   recordedBond: formatCtcWei(failureEffects.operatorBondAfter),
-  payout: formatCtcWei(payoutWei),
-  premium: formatCtcWei(premiumWei),
-  minimumUnits: `${successEvidence.semantics.minimumUnits} raw unit`,
-  termsHash: successEvidence.semantics.termsHash,
+  payout: formatCtcWei(featuredFailureEconomics.payout),
+  premium: formatCtcWei(featuredSuccessEconomics.premium),
+  minimumUnits: `${featuredSuccess.evidence.semantics.minimumUnits} raw unit`,
+  termsHash: featuredSuccess.evidence.semantics.termsHash,
 };
 
 export const activity = coverages.map((coverage) => ({

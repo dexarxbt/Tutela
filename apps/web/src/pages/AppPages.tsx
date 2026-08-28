@@ -3,6 +3,7 @@ import { CopyValue, Definition, Icon, PageHeading, StatusBadge } from '../compon
 import {
   activity,
   coverages,
+  evidenceCounts,
   failedLifecycle,
   findCoverage,
   shortHash,
@@ -74,7 +75,8 @@ export function DashboardPage() {
     <>
       <PageHeading eyebrow="Verified testnet evidence" title="Evidence overview">
         <span>
-          Repository-published success and failure snapshots from Sepolia to Creditcoin CC3.
+          Repository-published {evidenceCounts.success} success and {evidenceCounts.failure} failure
+          snapshots from Sepolia to Creditcoin CC3.
         </span>
       </PageHeading>
       <section className="metric-grid">
@@ -82,7 +84,9 @@ export function DashboardPage() {
           <span>Published lifecycles</span>
           <strong>{coverages.length}</strong>
           <div>
-            <span>1 success · 1 failure</span>
+            <span>
+              {evidenceCounts.success} success · {evidenceCounts.failure} failure
+            </span>
             <i>Verified</i>
           </div>
         </article>
@@ -90,12 +94,12 @@ export function DashboardPage() {
           <span>Recorded operator bond</span>
           <strong>{verifiedProgram.recordedBond}</strong>
           <div>
-            <span>After the published failure settlement</span>
+            <span>After the featured failure settlement</span>
             <i>Snapshot</i>
           </div>
         </article>
         <article className="metric-card">
-          <span>Failure customer credit</span>
+          <span>Featured failure customer credit</span>
           <strong>{failedLifecycle.customerCredit}</strong>
           <div>
             <span>CC3 block {failedLifecycle.destination.blockNumber.toLocaleString('en-US')}</span>
@@ -116,7 +120,7 @@ export function DashboardPage() {
           </div>
           <div className="bond-value">
             <strong>{verifiedProgram.recordedBond}</strong>
-            <span>Recorded after the verified failure settlement</span>
+            <span>Recorded after the featured verified failure settlement</span>
           </div>
           <div className="bond-legend">
             <div>
@@ -126,7 +130,7 @@ export function DashboardPage() {
             </div>
             <div>
               <i className="legend-dot legend-dot--dark" />
-              <span>Failure payout deducted</span>
+              <span>Featured failure payout deducted</span>
               <strong>{verifiedProgram.payout}</strong>
             </div>
           </div>
@@ -206,7 +210,7 @@ export function ProgramsPage() {
           </Link>
         }
       >
-        The program referenced by both published testnet lifecycle receipts.
+        The program referenced by {evidenceCounts.total} published testnet lifecycle receipts.
       </PageHeading>
       <div className="filter-line">
         <span>1 evidenced program · {verifiedProgram.lifecycleCount} verified lifecycles</span>
@@ -231,11 +235,11 @@ export function ProgramsPage() {
             <strong>{verifiedProgram.initialBond}</strong>
           </div>
           <div>
-            <span>Recorded after failure</span>
+            <span>Recorded after featured failure</span>
             <strong>{verifiedProgram.recordedBond}</strong>
           </div>
           <div>
-            <span>Failure payout</span>
+            <span>Featured failure payout</span>
             <strong>{verifiedProgram.payout}</strong>
           </div>
           <div>
@@ -279,7 +283,7 @@ export function ProgramDetailPage() {
           <small>Recorded in the verified success manifest.</small>
         </div>
         <div className="program-hero__balance program-hero__balance--right">
-          <span>Bond after verified failure</span>
+          <span>Bond after featured verified failure</span>
           <strong>{verifiedProgram.recordedBond}</strong>
           <small>This snapshot is not a live capacity reading.</small>
         </div>
@@ -294,7 +298,7 @@ export function ProgramDetailPage() {
           </div>
           <dl className="definition-list">
             <Definition label="Success premium delta" value={verifiedProgram.premium} />
-            <Definition label="Failure payout" value={verifiedProgram.payout} />
+            <Definition label="Featured failure payout" value={verifiedProgram.payout} />
             <Definition label="Minimum service" value={verifiedProgram.minimumUnits} />
             <Definition
               label="Published lifecycles"
@@ -354,7 +358,8 @@ export function CoveragePage() {
   return (
     <>
       <PageHeading eyebrow="Explorer-backed snapshots" title="Coverage evidence">
-        The two settled lifecycles published in the repository evidence manifests.
+        The {evidenceCounts.total} settled lifecycles published in the repository evidence
+        manifests.
       </PageHeading>
       <div className="filter-line">
         <span>{coverages.length} verified lifecycles · no live indexer connected</span>

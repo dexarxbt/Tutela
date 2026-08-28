@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   ATTESTCOIN,
@@ -8,6 +8,7 @@ import {
   evidenceManifestSchema,
   type DeploymentManifest,
   type EvidenceManifest,
+  type VerifiedEvidenceManifest,
 } from '../packages/protocol/src/index.ts';
 
 const root = process.cwd();
@@ -22,18 +23,16 @@ const DESTINATION_EVENT_TOPICS = {
   success: '0xeb3d353037d3925f23385e9b5ced0f0a060113e84f6c5996afebd631b37cdacb',
   failure: '0xb62b425ddab8ec1268730517f8579e4a562cf29ec7fa177a76b6850eb62224da',
 } as const;
+const EVIDENCE_CONCURRENCY = 4;
+const RPC_ATTEMPTS = 4;
+const RPC_RETRY_BASE_MS = 250;
+const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-type VerifiedEvidence = EvidenceManifest & {
-  status: 'verified';
-  protocolCommit: string;
-  coverageId: string;
-  sessionId: string;
-  programId: string;
-  source: NonNullable<EvidenceManifest['source']>;
-  destination: NonNullable<EvidenceManifest['destination']>;
-  semantics: NonNullable<EvidenceManifest['semantics']>;
-  balanceEffects: NonNullable<EvidenceManifest['balanceEffects']>;
-};
+type EvidenceRecord = { file: string; evidence: EvidenceManifest };
+type VerifiedEvidenceRecord = { file: string; evidence: VerifiedEvidenceManifest };
+type EvidenceEconomics = { premium: bigint; payout: bigint; customerCredit: bigint };
+
+class TransientRpcError extends Error {}
 
 type RpcLog = { address: string; topics: string[]; data: string };
 type RpcReceipt = {
@@ -73,18 +72,56 @@ function wordAddress(value: string) {
   return `0x${value.slice(-40)}`;
 }
 
+function sleep(milliseconds: number) {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+}
+
+function transientRpcError(error: unknown) {
+  if (error instanceof TransientRpcError || error instanceof TypeError) return true;
+  return error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name);
+}
+
 async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  assert(response.ok, `${method}: RPC returned HTTP ${response.status}`);
-  const body = (await response.json()) as { result?: T; error?: { code: number; message: string } };
-  assert(!body.error, `${method}: RPC error ${body.error?.code} ${body.error?.message}`);
-  assert(body.result !== undefined && body.result !== null, `${method}: RPC returned no result`);
-  return body.result;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < RPC_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) {
+        const message = `${method}: RPC returned HTTP ${response.status}`;
+        if (TRANSIENT_HTTP_STATUSES.has(response.status)) throw new TransientRpcError(message);
+        throw new Error(message);
+      }
+      const body = (await response.json()) as {
+        result?: T;
+        error?: { code: number; message: string };
+      };
+      if (body.error) {
+        const message = `${method}: RPC error ${body.error.code} ${body.error.message}`;
+        if (
+          [-32603, -32005, -32016].includes(body.error.code) ||
+          /busy|gateway|rate|temporar|timeout|unavailable|upstream/i.test(body.error.message)
+        ) {
+          throw new TransientRpcError(message);
+        }
+        throw new Error(message);
+      }
+      assert(
+        body.result !== undefined && body.result !== null,
+        `${method}: RPC returned no result`
+      );
+      return body.result;
+    } catch (error) {
+      lastError = error;
+      if (!transientRpcError(error) || attempt === RPC_ATTEMPTS - 1) throw error;
+      await sleep(RPC_RETRY_BASE_MS * 2 ** attempt);
+    }
+  }
+  throw lastError;
 }
 
 async function readJson(path: string): Promise<unknown> {
@@ -97,16 +134,19 @@ async function loadDeployment(file: string): Promise<DeploymentManifest> {
   return result.data;
 }
 
-async function loadEvidence(outcome: 'success' | 'failure') {
-  const file = `evidence/${outcome}.json`;
-  const input = await readJson(file);
+async function loadEvidence(file: string): Promise<EvidenceRecord> {
+  let input: unknown;
+  try {
+    input = await readJson(file);
+  } catch (error) {
+    throw new Error(`${file}: ${error instanceof Error ? error.message : String(error)}`);
+  }
   const result = evidenceManifestSchema.safeParse(input);
   if (!result.success) {
     throw new Error(
       `${file}: ${result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')}`
     );
   }
-  assert(result.data.outcome === outcome, `${file}: outcome does not match filename`);
   if (result.data.status === 'pending') {
     assert(
       Object.keys(input as Record<string, unknown>)
@@ -114,9 +154,95 @@ async function loadEvidence(outcome: 'success' | 'failure') {
         .join(',') === 'outcome,schemaVersion,status',
       `${file}: pending evidence must not contain fabricated identifiers or transactions`
     );
-    return result.data;
   }
-  return result.data as VerifiedEvidence;
+  return { file, evidence: result.data };
+}
+
+async function discoverEvidence(): Promise<EvidenceRecord[]> {
+  const entries = await readdir(resolve(root, 'evidence'), { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => `evidence/${entry.name}`)
+    .sort();
+  assert(files.length > 0, 'evidence: no JSON manifests found');
+  return Promise.all(files.map((file) => loadEvidence(file)));
+}
+
+function featuredEvidence(
+  records: VerifiedEvidenceRecord[],
+  file: string,
+  outcome: 'success' | 'failure'
+) {
+  const record = records.find((candidate) => candidate.file === file);
+  assert(record, `${file}: featured evidence manifest is missing`);
+  assert(record.evidence.outcome === outcome, `${file}: outcome must be ${outcome}`);
+  return record;
+}
+
+function assertUniqueEvidence(records: VerifiedEvidenceRecord[]) {
+  const identifiers = [
+    ['coverage ID', (record: VerifiedEvidenceRecord) => record.evidence.coverageId],
+    ['session ID', (record: VerifiedEvidenceRecord) => record.evidence.sessionId],
+    [
+      'source transaction',
+      (record: VerifiedEvidenceRecord) => record.evidence.source.transactionHash,
+    ],
+    [
+      'destination transaction',
+      (record: VerifiedEvidenceRecord) => record.evidence.destination.transactionHash,
+    ],
+  ] as const;
+  for (const [label, select] of identifiers) {
+    const seen = new Map<string, string>();
+    for (const record of records) {
+      const value = select(record).toLowerCase();
+      const duplicate = seen.get(value);
+      assert(!duplicate, `${record.file}: duplicate ${label} also appears in ${duplicate}`);
+      seen.set(value, record.file);
+    }
+  }
+}
+
+function deriveEconomics(record: VerifiedEvidenceRecord): EvidenceEconomics {
+  const { evidence, file } = record;
+  const operatorBondDelta =
+    BigInt(evidence.balanceEffects.operatorBondBefore) -
+    BigInt(evidence.balanceEffects.operatorBondAfter);
+  const customerCredit =
+    BigInt(evidence.balanceEffects.customerClaimableAfter) -
+    BigInt(evidence.balanceEffects.customerClaimableBefore);
+  assert(operatorBondDelta >= 0n, `${file}: operator bond must not increase during settlement`);
+  assert(customerCredit > 0n, `${file}: customer claimable delta must be positive`);
+  if (evidence.outcome === 'success') {
+    assert(operatorBondDelta === 0n, `${file}: success must not consume operator bond`);
+    assert(
+      BigInt(evidence.semantics.deliveredUnits!) >= BigInt(evidence.semantics.minimumUnits),
+      `${file}: success delivered units are below the committed minimum`
+    );
+    return { premium: customerCredit, payout: 0n, customerCredit };
+  }
+  assert(operatorBondDelta > 0n, `${file}: failure payout must consume operator bond`);
+  assert(
+    customerCredit > operatorBondDelta,
+    `${file}: failure credit must include a positive premium refund`
+  );
+  return {
+    premium: customerCredit - operatorBondDelta,
+    payout: operatorBondDelta,
+    customerCredit,
+  };
+}
+
+async function runBounded<T>(items: T[], concurrency: number, task: (item: T) => Promise<void>) {
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      await task(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
 }
 
 function assertExactExplorerUrl(
@@ -147,7 +273,7 @@ async function callWords(to: string, data: string, block: number | 'latest') {
 
 function assertProgram(
   program: string[],
-  evidence: VerifiedEvidence,
+  evidence: VerifiedEvidenceManifest,
   expectedPremium: bigint,
   expectedPayout: bigint,
   label: string
@@ -181,13 +307,13 @@ function assertProgram(
 }
 
 async function validateLiveEvidence(
-  evidence: VerifiedEvidence,
+  record: VerifiedEvidenceRecord,
   sourceDeployment: DeploymentManifest,
   destinationDeployment: DeploymentManifest,
   expectedPremium: bigint,
   expectedPayout: bigint
 ) {
-  const file = `evidence/${evidence.outcome}.json`;
+  const { evidence, file } = record;
   assert(evidence.source.chainId === CHAIN_IDS.sepolia, `${file}: source must be Sepolia`);
   assert(
     evidence.source.chainKey === ATTESTCOIN.expectedSepoliaChainKey,
@@ -397,7 +523,7 @@ async function validateLiveEvidence(
     `${file}: terminal coverage status mismatch`
   );
 
-  console.log(`✓ ${file} (verified against live RPC receipts and historical state)`);
+  return `${file} (verified against live RPC receipts and historical state)`;
 }
 
 const sourceDeployment = await loadDeployment('sepolia.json');
@@ -407,56 +533,90 @@ assert(
   'verified evidence requires deployed contract manifests'
 );
 
-const success = await loadEvidence('success');
-const failure = await loadEvidence('failure');
-assert(
-  success.status === failure.status,
-  'evidence manifests must both be pending or both be verified'
-);
-if (success.status === 'pending' && failure.status === 'pending') {
-  console.log(`✓ evidence/success.json (${success.status})`);
-  console.log(`✓ evidence/failure.json (${failure.status})`);
+const evidenceRecords = await discoverEvidence();
+const collectionStatus = evidenceRecords[0]!.evidence.status;
+for (const record of evidenceRecords) {
+  assert(
+    record.evidence.status === collectionStatus,
+    `${record.file}: evidence manifests must be all pending or all verified`
+  );
+}
+for (const [file, outcome] of [
+  ['evidence/success.json', 'success'],
+  ['evidence/failure.json', 'failure'],
+] as const) {
+  const record = evidenceRecords.find((candidate) => candidate.file === file);
+  assert(record, `${file}: featured evidence manifest is missing`);
+  assert(record.evidence.outcome === outcome, `${file}: outcome must be ${outcome}`);
+}
+
+if (collectionStatus === 'pending') {
+  for (const record of evidenceRecords) console.log(`✓ ${record.file} (pending)`);
 } else {
-  for (const field of ['programId'] as const) {
-    assert(success[field] === failure[field], `evidence manifests disagree on ${field}`);
+  const verifiedRecords = evidenceRecords as VerifiedEvidenceRecord[];
+  assertUniqueEvidence(verifiedRecords);
+
+  const featuredSuccess = featuredEvidence(verifiedRecords, 'evidence/success.json', 'success');
+  const featuredFailure = featuredEvidence(verifiedRecords, 'evidence/failure.json', 'failure');
+  const reference = featuredSuccess.evidence;
+  for (const record of verifiedRecords) {
+    const evidence = record.evidence;
+    assert(
+      evidence.programId.toLowerCase() === reference.programId.toLowerCase(),
+      `${record.file}: program ID differs from evidence/success.json`
+    );
+    assert(
+      evidence.protocolCommit === reference.protocolCommit,
+      `${record.file}: protocol commit differs from evidence/success.json`
+    );
+    assert(
+      evidence.semantics.operator.toLowerCase() === reference.semantics.operator.toLowerCase() &&
+        evidence.semantics.customer.toLowerCase() === reference.semantics.customer.toLowerCase() &&
+        evidence.semantics.device.toLowerCase() === reference.semantics.device.toLowerCase() &&
+        evidence.semantics.termsHash.toLowerCase() ===
+          reference.semantics.termsHash.toLowerCase() &&
+        evidence.semantics.minimumUnits === reference.semantics.minimumUnits,
+      `${record.file}: manifest does not describe the same program as evidence/success.json`
+    );
   }
-  assert(
-    success.protocolCommit === failure.protocolCommit,
-    'evidence manifests disagree on protocol commit'
-  );
-  assert(
-    success.semantics.operator.toLowerCase() === failure.semantics.operator.toLowerCase() &&
-      success.semantics.customer.toLowerCase() === failure.semantics.customer.toLowerCase() &&
-      success.semantics.device.toLowerCase() === failure.semantics.device.toLowerCase() &&
-      success.semantics.termsHash.toLowerCase() === failure.semantics.termsHash.toLowerCase() &&
-      success.semantics.minimumUnits === failure.semantics.minimumUnits,
-    'evidence manifests do not describe one consistent program'
-  );
 
-  const premium =
-    BigInt(success.balanceEffects.customerClaimableAfter) -
-    BigInt(success.balanceEffects.customerClaimableBefore);
-  const payout =
-    BigInt(failure.balanceEffects.operatorBondBefore) -
-    BigInt(failure.balanceEffects.operatorBondAfter);
-  const failureCredit =
-    BigInt(failure.balanceEffects.customerClaimableAfter) -
-    BigInt(failure.balanceEffects.customerClaimableBefore);
-  assert(premium > 0n, 'success premium delta must be positive');
-  assert(
-    success.balanceEffects.operatorBondBefore === success.balanceEffects.operatorBondAfter,
-    'success must not consume operator bond'
+  const economics = new Map(
+    verifiedRecords.map((record) => [record.file, deriveEconomics(record)] as const)
   );
-  assert(payout > 0n, 'failure payout must consume operator bond');
-  assert(
-    failureCredit === payout + premium,
-    'failure credit must equal payout plus premium refund'
-  );
-  assert(
-    BigInt(success.semantics.deliveredUnits!) >= BigInt(success.semantics.minimumUnits),
-    'success delivered units are below the committed minimum'
-  );
+  const expectedPremium = economics.get(featuredSuccess.file)!.premium;
+  const expectedPayout = economics.get(featuredFailure.file)!.payout;
+  for (const record of verifiedRecords) {
+    const recordEconomics = economics.get(record.file)!;
+    assert(
+      recordEconomics.premium === expectedPremium,
+      `${record.file}: derived premium differs from evidence/success.json`
+    );
+    if (record.evidence.outcome === 'failure') {
+      assert(
+        recordEconomics.payout === expectedPayout,
+        `${record.file}: derived payout differs from evidence/failure.json`
+      );
+    }
+  }
 
-  await validateLiveEvidence(success, sourceDeployment, destinationDeployment, premium, payout);
-  await validateLiveEvidence(failure, sourceDeployment, destinationDeployment, premium, payout);
+  await runBounded(verifiedRecords, EVIDENCE_CONCURRENCY, async (record) => {
+    const recordEconomics = economics.get(record.file)!;
+    try {
+      await validateLiveEvidence(
+        record,
+        sourceDeployment,
+        destinationDeployment,
+        recordEconomics.premium,
+        record.evidence.outcome === 'failure' ? recordEconomics.payout : expectedPayout
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        message.startsWith(`${record.file}:`) ? message : `${record.file}: ${message}`
+      );
+    }
+  });
+  for (const record of verifiedRecords) {
+    console.log(`✓ ${record.file} (verified against live RPC receipts and historical state)`);
+  }
 }

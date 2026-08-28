@@ -125,3 +125,14 @@ export const evidenceManifestSchema = z
 
 export type DeploymentManifest = z.infer<typeof deploymentManifestSchema>;
 export type EvidenceManifest = z.infer<typeof evidenceManifestSchema>;
+export type VerifiedEvidenceManifest = EvidenceManifest & {
+  status: 'verified';
+  protocolCommit: string;
+  coverageId: string;
+  sessionId: string;
+  programId: string;
+  source: NonNullable<EvidenceManifest['source']>;
+  destination: NonNullable<EvidenceManifest['destination']>;
+  semantics: NonNullable<EvidenceManifest['semantics']>;
+  balanceEffects: NonNullable<EvidenceManifest['balanceEffects']>;
+};

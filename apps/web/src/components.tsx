@@ -2,7 +2,7 @@ import { CHAIN_IDS } from '@tutela/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { chainLabel, shortenAddress, useWallet } from './wallet';
-import { successfulLifecycle } from './data';
+import { evidenceCounts, successfulLifecycle } from './data';
 
 export function Brand({ light = false }: { light?: boolean }) {
   return (
@@ -310,8 +310,9 @@ export function VerifiedEvidenceBanner() {
     <div className="verified-evidence-banner" role="status">
       <span>Verified evidence snapshots</span>
       <p>
-        Two repository-validated testnet lifecycles are shown. Values are not a live index of
-        current chain state.
+        {evidenceCounts.total} repository-validated testnet lifecycles are shown (
+        {evidenceCounts.success} success, {evidenceCounts.failure} failure). Values are not a live
+        index of current chain state.
       </p>
     </div>
   );
