@@ -1,12 +1,73 @@
-# Tutela
+<p align="center">
+  <img src="apps/web/public/tutela-mark.svg" width="92" alt="Tutela protected passage mark" />
+</p>
 
-**Proof-settled service warranties for DePIN.**
+<h1 align="center">Tutela</h1>
+<p align="center"><strong>Proof-settled service warranties for DePIN.</strong></p>
+<p align="center">Lock collateral before service. Settle from verified delivery. Pay failure without discretion.</p>
 
-Lock collateral before service. Settle from verified delivery. Pay failure without discretion.
+<p align="center">
+  <a href="#public-testnet-evidence">Evidence</a> ·
+  <a href="#zero-spend-local-demo">Local demo</a> ·
+  <a href="#protocol-architecture">Architecture</a> ·
+  <a href="#verification">Verification</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
+
+<p align="center">
+  <img src="apps/web/public/og-image.svg" width="920" alt="Tutela — service proved, failure paid" />
+</p>
 
 Tutela is a public-testnet prototype for collateral-backed service guarantees. An operator bonds native CTC against immutable service terms before a session begins. A source-chain outcome is proven through Attestcoin, and the Creditcoin CC3 vault releases the premium when service is delivered or compensates the customer when it is not.
 
 The prover transports evidence but does not decide the result. `TutelaVault` accepts only proofs whose chain, registry, event, identities, terms, deadline, and service units match the coverage reserved on CC3.
+
+## Protocol at a glance
+
+```mermaid
+flowchart LR
+    O[Operator bonds CTC] --> V[Coverage reserved on CC3]
+    C[Customer signs exact terms] --> R[Session opens on Sepolia]
+    V --> R
+    R --> X{Source outcome}
+    X -->|Delivered| S[SessionSettled]
+    X -->|Deadline missed| F[SessionFailed]
+    S --> A[Attestcoin inclusion proof]
+    F --> A
+    A --> T[TutelaVault verifies commitments]
+    T -->|Success| OP[Premium credited to operator]
+    T -->|Failure| CP[Payout and refund credited to customer]
+
+    classDef cc3 fill:#0c5639,color:#f7f7f2,stroke:#0c5639;
+    classDef source fill:#e8f0ff,color:#14233c,stroke:#5c7cba;
+    classDef proof fill:#efffcf,color:#18351f,stroke:#7aa52d;
+    class V,T,OP,CP cc3;
+    class R,X,S,F source;
+    class A proof;
+```
+
+## Published evidence map
+
+```mermaid
+flowchart TB
+    SD[Sepolia registry deployment] --> SL[Successful source outcome]
+    SD --> FL[Failed source outcome]
+    CD[CC3 vault deployment] --> SS[Successful proof settlement]
+    CD --> FS[Failure proof settlement]
+    SL --> SS
+    FL --> FS
+    SS --> SR[Verified success receipt]
+    FS --> FR[Verified compensated receipt]
+
+    classDef deploy fill:#f2f3ef,color:#111611,stroke:#8b948d;
+    classDef source fill:#e8f0ff,color:#14233c,stroke:#5c7cba;
+    classDef settle fill:#0c5639,color:#f7f7f2,stroke:#0c5639;
+    classDef receipt fill:#efffcf,color:#18351f,stroke:#7aa52d;
+    class SD,CD deploy;
+    class SL,FL source;
+    class SS,FS settle;
+    class SR,FR receipt;
+```
 
 ## What this release demonstrates
 
@@ -50,7 +111,7 @@ The shared program ID is `0x88c009c1caeaa9b2889593791115138e662f8d6e3e6dea58ff03
 
 ## Zero-spend local demo
 
-The recommended demo is read-only. It requires no wallet, private key, keystore, funded account, or environment file.
+The recommended local demo is read-only. It requires no wallet, private key, keystore, funded account, or environment file.
 
 ### 1. Check prerequisites
 
