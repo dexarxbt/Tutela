@@ -248,6 +248,7 @@ export const evidenceCounts = {
   success: coverages.filter((coverage) => coverage.outcome === 'success').length,
   failure: coverages.filter((coverage) => coverage.outcome === 'failure').length,
 };
+export const publishedTransactionCount = 2 + evidenceCounts.total * 2;
 
 const successEffects = featuredSuccess.evidence.balanceEffects;
 const failureEffects = featuredFailure.evidence.balanceEffects;

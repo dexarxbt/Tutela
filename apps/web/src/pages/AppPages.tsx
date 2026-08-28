@@ -6,6 +6,7 @@ import {
   evidenceCounts,
   failedLifecycle,
   findCoverage,
+  publishedTransactionCount,
   shortHash,
   verifiedProgram,
 } from '../data';
@@ -76,7 +77,7 @@ export function DashboardPage() {
       <PageHeading eyebrow="Verified testnet evidence" title="Evidence overview">
         <span>
           Repository-published {evidenceCounts.success} success and {evidenceCounts.failure} failure
-          snapshots from Sepolia to Creditcoin CC3.
+          snapshots across {publishedTransactionCount} explorer-backed transactions.
         </span>
       </PageHeading>
       <section className="metric-grid">
@@ -85,7 +86,8 @@ export function DashboardPage() {
           <strong>{coverages.length}</strong>
           <div>
             <span>
-              {evidenceCounts.success} success · {evidenceCounts.failure} failure
+              {evidenceCounts.success} success · {evidenceCounts.failure} failure ·{' '}
+              {publishedTransactionCount} transactions
             </span>
             <i>Verified</i>
           </div>

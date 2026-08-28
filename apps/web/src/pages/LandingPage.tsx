@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom';
 import { Brand, Icon } from '../components';
 import {
   coverages,
+  evidenceCounts,
   failedLifecycle,
+  publishedTransactionCount,
   shortHash,
   successfulLifecycle,
   verifiedProgram,
@@ -26,7 +28,10 @@ export function LandingPage() {
         <section className="hero">
           <div className="hero__signal">
             <span />
-            <span>Verified testnet service warranties, settled by proof</span>
+            <span>
+              {publishedTransactionCount} explorer-backed transactions · {evidenceCounts.total}{' '}
+              verified lifecycles
+            </span>
           </div>
           <h1>
             Service proved
