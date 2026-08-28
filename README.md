@@ -7,6 +7,7 @@
 <p align="center">Lock collateral before service. Settle from verified delivery. Pay failure without discretion.</p>
 
 <p align="center">
+  <a href="https://youtu.be/wlS03U4cJf0">Demo video</a> ·
   <a href="#zero-spend-web-demo">Primary web demo</a> ·
   <a href="#public-testnet-evidence">Evidence</a> ·
   <a href="#verification">Verification</a> ·
